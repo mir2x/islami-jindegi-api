@@ -1,0 +1,6 @@
+@IslamiJindegiApi_HostAddress = http://localhost:5048
+
+GET {{IslamiJindegiApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
