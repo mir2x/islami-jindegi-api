@@ -194,7 +194,8 @@ public static class ChapterEndpoints
             sub.Title = req.Title;
             sub.Body = req.Body;
             if (req.Position.HasValue) sub.Position = req.Position.Value;
-            if (req.ParentSubChapterId.HasValue) sub.ParentSubChapterId = req.ParentSubChapterId;
+            if (req.ChapterId.HasValue) sub.ChapterId = req.ChapterId.Value;
+            sub.ParentSubChapterId = req.ParentSubChapterId;
             sub.UpdatedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync();

@@ -50,20 +50,34 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 
-    if (args.Contains("--migrate-data"))
+    if (args.Contains("--migrate-data") || args.Contains("--migrate-new-modules"))
     {
         var oldUrl = Environment.GetEnvironmentVariable("OLD_DATABASE_URL")
             ?? throw new InvalidOperationException("OLD_DATABASE_URL not set.");
         var oldConnStr = BuildConnectionString(oldUrl, null);
-        await MigrateDataCommand.RunAsync(oldConnStr, db);
+
+        if (args.Contains("--migrate-new-modules"))
+            await MigrateDataCommand.RunNewModulesAsync(oldConnStr, db);
+        else
+            await MigrateDataCommand.RunAsync(oldConnStr, db);
+
         return;
     }
 }
 
+app.MapMediaEndpoints();
 app.MapAuthorEndpoints();
 app.MapCategoryEndpoints();
 app.MapBookEndpoints();
 app.MapChapterEndpoints();
 app.MapUploadEndpoints();
+app.MapMalfuzatEndpoints();
+app.MapMasailEndpoints();
+app.MapDuaEndpoints();
+app.MapBayanEndpoints();
+app.MapArticleEndpoints();
+app.MapNewsEndpoints();
+app.MapMadrasahEndpoints();
+app.MapNamazTimeEndpoints();
 
 app.Run();

@@ -3,6 +3,7 @@ using System;
 using IslamiJindegiApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IslamiJindegiApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260601143348_AddMediaDescription")]
+    partial class AddMediaDescription
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -405,103 +408,6 @@ namespace IslamiJindegiApi.Migrations
                     b.ToTable("Duas");
                 });
 
-            modelBuilder.Entity("IslamiJindegiApi.Models.Madrasah", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Excerpt")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Introduction")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Madrasahs");
-                });
-
-            modelBuilder.Entity("IslamiJindegiApi.Models.MadrasahInfo", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Info")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("MadrasahId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MadrasahId");
-
-                    b.ToTable("MadrasahInfos");
-                });
-
-            modelBuilder.Entity("IslamiJindegiApi.Models.MadrasahPhoto", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ImageUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("MadrasahId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MadrasahId");
-
-                    b.ToTable("MadrasahPhotos");
-                });
-
             modelBuilder.Entity("IslamiJindegiApi.Models.Malfuzat", b =>
                 {
                     b.Property<Guid>("Id")
@@ -658,81 +564,6 @@ namespace IslamiJindegiApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Medias");
-                });
-
-            modelBuilder.Entity("IslamiJindegiApi.Models.NamazTime", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Fazail")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Masail")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("TitleBn")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("NamazTimes");
-                });
-
-            modelBuilder.Entity("IslamiJindegiApi.Models.News", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Excerpt")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Language")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("Published")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("PublishedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("News");
                 });
 
             modelBuilder.Entity("IslamiJindegiApi.Models.SubChapter", b =>
@@ -918,28 +749,6 @@ namespace IslamiJindegiApi.Migrations
                     b.Navigation("Book");
                 });
 
-            modelBuilder.Entity("IslamiJindegiApi.Models.MadrasahInfo", b =>
-                {
-                    b.HasOne("IslamiJindegiApi.Models.Madrasah", "Madrasah")
-                        .WithMany("Infos")
-                        .HasForeignKey("MadrasahId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Madrasah");
-                });
-
-            modelBuilder.Entity("IslamiJindegiApi.Models.MadrasahPhoto", b =>
-                {
-                    b.HasOne("IslamiJindegiApi.Models.Madrasah", "Madrasah")
-                        .WithMany("Photos")
-                        .HasForeignKey("MadrasahId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Madrasah");
-                });
-
             modelBuilder.Entity("IslamiJindegiApi.Models.Malfuzat", b =>
                 {
                     b.HasOne("IslamiJindegiApi.Models.Author", "Author")
@@ -1001,13 +810,6 @@ namespace IslamiJindegiApi.Migrations
             modelBuilder.Entity("IslamiJindegiApi.Models.Chapter", b =>
                 {
                     b.Navigation("SubChapters");
-                });
-
-            modelBuilder.Entity("IslamiJindegiApi.Models.Madrasah", b =>
-                {
-                    b.Navigation("Infos");
-
-                    b.Navigation("Photos");
                 });
 #pragma warning restore 612, 618
         }

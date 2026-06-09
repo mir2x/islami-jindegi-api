@@ -40,7 +40,29 @@ public class StorageService
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         var key = $"admin/{Guid.NewGuid()}{ext}";
+        await PutAsync(stream, key, contentType);
+        return PublicBase + key;
+    }
 
+    public async Task<(string Key, string Url)> UploadWithKeyAsync(Stream stream, string fileName, string contentType)
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        var key = $"admin/{Guid.NewGuid()}{ext}";
+        await PutAsync(stream, key, contentType);
+        return (key, PublicBase + key);
+    }
+
+    public async Task DeleteAsync(string key)
+    {
+        await _client.DeleteObjectAsync(new DeleteObjectRequest
+        {
+            BucketName = _bucket,
+            Key = key,
+        });
+    }
+
+    async Task PutAsync(Stream stream, string key, string contentType)
+    {
         await _client.PutObjectAsync(new PutObjectRequest
         {
             BucketName = _bucket,
@@ -49,7 +71,5 @@ public class StorageService
             ContentType = contentType,
             CannedACL = S3CannedACL.PublicRead,
         });
-
-        return PublicBase + key;
     }
 }

@@ -37,6 +37,6 @@ public record SubChapterListItem(Guid Id, string Title, int Position, Guid Chapt
 
 public record SaveChapterRequest(string Title, string? Body, int? Position);
 
-public record SaveSubChapterRequest(string Title, string? Body, int? Position, Guid? ParentSubChapterId);
+public record SaveSubChapterRequest(string Title, string? Body, int? Position, Guid? ChapterId, Guid? ParentSubChapterId);
 
 public record CreateSubChapterRequest(string Title, string? Body, int? Position, Guid ChapterId, Guid? ParentSubChapterId);

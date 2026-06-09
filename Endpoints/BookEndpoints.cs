@@ -53,6 +53,7 @@ public static class BookEndpoints
                 .Include(b => b.Authors)
                 .Include(b => b.Categories).ThenInclude(c => c.Children)
                 .Include(b => b.Chapters).ThenInclude(c => c.SubChapters)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(b => b.Id == id);
 
             return book is null ? Results.NotFound() : Results.Ok(ToDetail(book));

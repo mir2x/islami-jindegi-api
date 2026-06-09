@@ -12,4 +12,9 @@ public class Category
     public Category? Parent { get; set; }
     public ICollection<Category> Children { get; set; } = [];
     public ICollection<Book> Books { get; set; } = [];
+    public ICollection<Malfuzat> Malfuzats { get; set; } = [];
+    public ICollection<Masail> Masails { get; set; } = [];
+    public ICollection<Dua> Duas { get; set; } = [];
+    public ICollection<Bayan> Bayans { get; set; } = [];
+    public ICollection<Article> Articles { get; set; } = [];
 }
