@@ -61,6 +61,28 @@ public class StorageService
         });
     }
 
+    public string GetPresignedUrl(string key, int expiresInSeconds = 3600)
+    {
+        var request = new GetPreSignedUrlRequest
+        {
+            BucketName = _bucket,
+            Key = key,
+            Verb = HttpVerb.GET,
+            Expires = DateTime.UtcNow.AddSeconds(expiresInSeconds),
+        };
+        return _client.GetPreSignedURL(request);
+    }
+
+    public async Task<long> GetFileSizeAsync(string key)
+    {
+        var meta = await _client.GetObjectMetadataAsync(new GetObjectMetadataRequest
+        {
+            BucketName = _bucket,
+            Key = key,
+        });
+        return meta.ContentLength;
+    }
+
     async Task PutAsync(Stream stream, string key, string contentType)
     {
         await _client.PutObjectAsync(new PutObjectRequest

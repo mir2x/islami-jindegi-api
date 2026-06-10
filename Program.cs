@@ -63,6 +63,12 @@ using (var scope = app.Services.CreateScope())
 
         return;
     }
+
+    if (args.Contains("--seed-bd-1447"))
+    {
+        await SeedBd1447Command.RunAsync(db);
+        return;
+    }
 }
 
 app.MapMediaEndpoints();
@@ -79,5 +85,7 @@ app.MapArticleEndpoints();
 app.MapNewsEndpoints();
 app.MapMadrasahEndpoints();
 app.MapNamazTimeEndpoints();
+app.MapHijriEndpoints();
+app.MapQuranAssetEndpoints();
 
 app.Run();
