@@ -15,7 +15,8 @@ public record BookListItem(
     DateTime CreatedAt,
     DateTime UpdatedAt,
     List<AuthorResponse> Authors,
-    List<CategoryResponse> Categories);
+    List<CategoryResponse> Categories,
+    int ChapterCount);
 
 public record BookDetail(
     Guid Id,

@@ -42,9 +42,15 @@ public static class BookEndpoints
                 .OrderBy(b => b.Position)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .Select(b => new
+                {
+                    Book = b,
+                    ChapterCount = b.Chapters.Count()
+                })
                 .ToListAsync();
 
-            return Results.Ok(new PagedResult<BookListItem>(data.Select(ToListItem), total, page, pageSize));
+            return Results.Ok(new PagedResult<BookListItem>(
+                data.Select(x => ToListItem(x.Book, x.ChapterCount)), total, page, pageSize));
         });
 
         group.MapGet("/{id:guid}", async (Guid id, AppDbContext db) =>
@@ -129,12 +135,13 @@ public static class BookEndpoints
         });
     }
 
-    static BookListItem ToListItem(Book b) => new(
+    static BookListItem ToListItem(Book b, int chapterCount = 0) => new(
         b.Id, b.Title, b.Excerpt, b.Publisher, b.Price, b.Language,
         b.CoverUrl, b.DocumentUrl, b.Position, b.PublishedAt, b.Published,
         b.CreatedAt, b.UpdatedAt,
         b.Authors.Select(AuthorEndpoints.ToResponse).ToList(),
-        b.Categories.Select(CategoryEndpoints.ToResponse).ToList());
+        b.Categories.Select(CategoryEndpoints.ToResponse).ToList(),
+        chapterCount);
 
     static BookDetail ToDetail(Book b) => new(
         b.Id, b.Title, b.Excerpt, b.Publisher, b.Price, b.Language,
