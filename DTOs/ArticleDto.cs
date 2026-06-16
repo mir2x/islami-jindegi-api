@@ -28,6 +28,9 @@ public record ArticleDetail(
     AuthorResponse? Author,
     List<CategoryResponse> Categories);
 
+public record ArticleAuthorOption(Guid Id, string Name, int Count);
+public record ArticleCategoryOption(Guid Id, string Title, int Count);
+
 public record SaveArticleRequest(
     string Title,
     string Body,

@@ -11,6 +11,29 @@ public static class ArticleEndpoints
     {
         var group = app.MapGroup("/api/articles");
 
+        group.MapGet("/authors", async (AppDbContext db, bool published = true) =>
+        {
+            var data = await db.Authors
+                .Select(a => new { a.Id, a.Name, Count = a.Articles.Count(x => x.Published == published) })
+                .Where(a => a.Count > 0)
+                .OrderByDescending(a => a.Count)
+                .ThenBy(a => a.Name)
+                .ToListAsync();
+            return Results.Ok(data.Select(a => new ArticleAuthorOption(a.Id, a.Name, a.Count)));
+        });
+
+        group.MapGet("/categories", async (AppDbContext db, bool published = true) =>
+        {
+            var data = await db.Categories
+                .Where(c => c.ParentId == null)
+                .Select(c => new { c.Id, c.Title, Count = c.Articles.Count(x => x.Published == published) })
+                .Where(c => c.Count > 0)
+                .OrderByDescending(c => c.Count)
+                .ThenBy(c => c.Title)
+                .ToListAsync();
+            return Results.Ok(data.Select(c => new ArticleCategoryOption(c.Id, c.Title, c.Count)));
+        });
+
         group.MapGet("/", async (
             AppDbContext db,
             int page = 1,
