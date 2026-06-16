@@ -11,13 +11,26 @@ public static class DuaEndpoints
     {
         var group = app.MapGroup("/api/dua");
 
+        group.MapGet("/categories", async (AppDbContext db, bool published = true) =>
+        {
+            var data = await db.Categories
+                .Where(c => c.ParentId == null)
+                .Select(c => new { c.Id, c.Title, Count = c.Duas.Count(d => d.Published == published) })
+                .Where(c => c.Count > 0)
+                .OrderByDescending(c => c.Count)
+                .ThenBy(c => c.Title)
+                .ToListAsync();
+            return Results.Ok(data.Select(c => new DuaCategoryOption(c.Id, c.Title, c.Count)));
+        });
+
         group.MapGet("/", async (
             AppDbContext db,
             int page = 1,
             int pageSize = 10,
             string? search = null,
             Guid? categoryId = null,
-            bool? published = null) =>
+            bool? published = null,
+            bool? hasAudio = null) =>
         {
             var query = db.Duas
                 .Include(d => d.Categories)
@@ -29,6 +42,10 @@ public static class DuaEndpoints
                 query = query.Where(d => d.Categories.Any(c => c.Id == categoryId.Value));
             if (published.HasValue)
                 query = query.Where(d => d.Published == published.Value);
+            if (hasAudio.HasValue)
+                query = hasAudio.Value
+                    ? query.Where(d => d.AudioUrl != null)
+                    : query.Where(d => d.AudioUrl == null);
 
             var total = await query.CountAsync();
             var data = await query

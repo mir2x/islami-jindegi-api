@@ -26,6 +26,8 @@ public record DuaDetail(
     DateTime UpdatedAt,
     List<CategoryResponse> Categories);
 
+public record DuaCategoryOption(Guid Id, string Title, int Count);
+
 public record SaveDuaRequest(
     string Title,
     string Body,
