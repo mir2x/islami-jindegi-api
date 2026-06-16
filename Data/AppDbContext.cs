@@ -22,6 +22,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MadrasahPhoto> MadrasahPhotos => Set<MadrasahPhoto>();
     public DbSet<NamazTime> NamazTimes => Set<NamazTime>();
     public DbSet<HijriMonthSighting> HijriMonthSightings => Set<HijriMonthSighting>();
+    public DbSet<QuranAyah> QuranAyahs => Set<QuranAyah>();
+    public DbSet<QuranTranslation> QuranTranslations => Set<QuranTranslation>();
+    public DbSet<QuranWord> QuranWords => Set<QuranWord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,5 +75,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<HijriMonthSighting>()
             .HasIndex(h => new { h.CountryCode, h.GregorianStartDate });
+
+        modelBuilder.Entity<QuranAyah>()
+            .HasIndex(a => new { a.SurahNumber, a.AyahNumber })
+            .IsUnique();
+
+        modelBuilder.Entity<QuranTranslation>()
+            .HasIndex(t => new { t.SurahNumber, t.AyahNumber, t.TranslatorName });
+
+        modelBuilder.Entity<QuranWord>()
+            .HasIndex(w => new { w.SurahNumber, w.AyahNumber, w.WordId });
     }
 }

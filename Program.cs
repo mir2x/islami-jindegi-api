@@ -87,5 +87,6 @@ app.MapMadrasahEndpoints();
 app.MapNamazTimeEndpoints();
 app.MapHijriEndpoints();
 app.MapQuranAssetEndpoints();
+app.MapQuranTextEndpoints();
 
 app.Run();
