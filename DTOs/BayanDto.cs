@@ -41,3 +41,7 @@ public record SaveBayanRequest(
     int? Position,
     Guid AuthorId,
     List<Guid> CategoryIds);
+
+public record BayanAuthorOption(Guid Id, string Name, int Count);
+
+public record BayanCategoryOption(Guid Id, string Title, int Count);

@@ -49,3 +49,7 @@ public record SaveBookRequest(
     bool Published,
     List<Guid> AuthorIds,
     List<Guid> CategoryIds);
+
+public record BookAuthorOption(Guid Id, string Name, int Count);
+
+public record BookCategoryOption(Guid Id, string Title, int Count);

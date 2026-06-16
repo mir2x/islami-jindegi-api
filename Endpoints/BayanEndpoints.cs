@@ -18,7 +18,8 @@ public static class BayanEndpoints
             string? search = null,
             Guid? authorId = null,
             Guid? categoryId = null,
-            bool? published = null) =>
+            bool? published = null,
+            string? sort = null) =>
         {
             var query = db.Bayans
                 .Include(b => b.Author)
@@ -34,14 +35,40 @@ public static class BayanEndpoints
             if (published.HasValue)
                 query = query.Where(b => b.Published == published.Value);
 
+            query = sort == "date"
+                ? query.OrderByDescending(b => b.PublishedAt)
+                : query.OrderBy(b => b.Position);
+
             var total = await query.CountAsync();
             var data = await query
-                .OrderBy(b => b.Position)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
             return Results.Ok(new PagedResult<BayanListItem>(data.Select(ToListItem), total, page, pageSize));
+        });
+
+        group.MapGet("/authors", async (AppDbContext db, bool published = true) =>
+        {
+            var data = await db.Authors
+                .Select(a => new { a.Id, a.Name, Count = a.Bayans.Count(b => b.Published == published) })
+                .Where(a => a.Count > 0)
+                .OrderByDescending(a => a.Count)
+                .ThenBy(a => a.Name)
+                .ToListAsync();
+            return Results.Ok(data.Select(a => new BayanAuthorOption(a.Id, a.Name, a.Count)));
+        });
+
+        group.MapGet("/categories", async (AppDbContext db, bool published = true) =>
+        {
+            var data = await db.Categories
+                .Where(c => c.ParentId == null)
+                .Select(c => new { c.Id, c.Title, Count = c.Bayans.Count(b => b.Published == published) })
+                .Where(c => c.Count > 0)
+                .OrderByDescending(c => c.Count)
+                .ThenBy(c => c.Title)
+                .ToListAsync();
+            return Results.Ok(data.Select(c => new BayanCategoryOption(c.Id, c.Title, c.Count)));
         });
 
         group.MapGet("/{id:guid}", async (Guid id, AppDbContext db) =>

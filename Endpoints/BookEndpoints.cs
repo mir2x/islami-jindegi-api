@@ -53,6 +53,29 @@ public static class BookEndpoints
                 data.Select(x => ToListItem(x.Book, x.ChapterCount)), total, page, pageSize));
         });
 
+        group.MapGet("/authors", async (AppDbContext db, bool published = true) =>
+        {
+            var data = await db.Authors
+                .Select(a => new { a.Id, a.Name, Count = a.Books.Count(b => b.Published == published) })
+                .Where(a => a.Count > 0)
+                .OrderByDescending(a => a.Count)
+                .ThenBy(a => a.Name)
+                .ToListAsync();
+            return Results.Ok(data.Select(a => new BookAuthorOption(a.Id, a.Name, a.Count)));
+        });
+
+        group.MapGet("/categories", async (AppDbContext db, bool published = true) =>
+        {
+            var data = await db.Categories
+                .Where(c => c.ParentId == null)
+                .Select(c => new { c.Id, c.Title, Count = c.Books.Count(b => b.Published == published) })
+                .Where(c => c.Count > 0)
+                .OrderByDescending(c => c.Count)
+                .ThenBy(c => c.Title)
+                .ToListAsync();
+            return Results.Ok(data.Select(c => new BookCategoryOption(c.Id, c.Title, c.Count)));
+        });
+
         group.MapGet("/{id:guid}", async (Guid id, AppDbContext db) =>
         {
             var book = await db.Books
