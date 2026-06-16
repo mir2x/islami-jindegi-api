@@ -11,6 +11,29 @@ public static class MalfuzatEndpoints
     {
         var group = app.MapGroup("/api/malfuzat");
 
+        group.MapGet("/authors", async (AppDbContext db, bool published = true) =>
+        {
+            var data = await db.Authors
+                .Select(a => new { a.Id, a.Name, Count = a.Malfuzats.Count(m => m.Published == published) })
+                .Where(a => a.Count > 0)
+                .OrderByDescending(a => a.Count)
+                .ThenBy(a => a.Name)
+                .ToListAsync();
+            return Results.Ok(data.Select(a => new MalfuzatAuthorOption(a.Id, a.Name, a.Count)));
+        });
+
+        group.MapGet("/categories", async (AppDbContext db, bool published = true) =>
+        {
+            var data = await db.Categories
+                .Where(c => c.ParentId == null)
+                .Select(c => new { c.Id, c.Title, Count = c.Malfuzats.Count(m => m.Published == published) })
+                .Where(c => c.Count > 0)
+                .OrderByDescending(c => c.Count)
+                .ThenBy(c => c.Title)
+                .ToListAsync();
+            return Results.Ok(data.Select(c => new MalfuzatCategoryOption(c.Id, c.Title, c.Count)));
+        });
+
         group.MapGet("/", async (
             AppDbContext db,
             int page = 1,
@@ -18,7 +41,8 @@ public static class MalfuzatEndpoints
             string? search = null,
             Guid? authorId = null,
             Guid? categoryId = null,
-            bool? published = null) =>
+            bool? published = null,
+            bool? hasAudio = null) =>
         {
             var query = db.Malfuzats
                 .Include(m => m.Author)
@@ -33,6 +57,8 @@ public static class MalfuzatEndpoints
                 query = query.Where(m => m.Categories.Any(c => c.Id == categoryId.Value));
             if (published.HasValue)
                 query = query.Where(m => m.Published == published.Value);
+            if (hasAudio.HasValue)
+                query = query.Where(m => m.HasAudio == hasAudio.Value);
 
             var total = await query.CountAsync();
             var data = await query

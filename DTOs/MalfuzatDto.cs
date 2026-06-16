@@ -32,6 +32,9 @@ public record MalfuzatDetail(
     AuthorResponse Author,
     List<CategoryResponse> Categories);
 
+public record MalfuzatAuthorOption(Guid Id, string Name, int Count);
+public record MalfuzatCategoryOption(Guid Id, string Title, int Count);
+
 public record SaveMalfuzatRequest(
     string Title,
     string? Body,
