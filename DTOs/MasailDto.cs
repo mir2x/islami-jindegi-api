@@ -31,6 +31,9 @@ public record MasailDetail(
     AuthorResponse? Author,
     List<CategoryResponse> Categories);
 
+public record MasailAuthorOption(Guid Id, string Name, int Count);
+public record MasailCategoryOption(Guid Id, string Title, int Count);
+
 public record SaveMasailRequest(
     string Title,
     string Question,
