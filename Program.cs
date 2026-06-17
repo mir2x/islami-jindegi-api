@@ -1,12 +1,12 @@
 using IslamiJindegiApi.Commands;
 using IslamiJindegiApi.Data;
-using IslamiJindegiApi.Endpoints;
 using IslamiJindegiApi.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddControllers();
 
 var connectionString = BuildConnectionString(
     Environment.GetEnvironmentVariable("DATABASE_URL"),
@@ -28,6 +28,22 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddSingleton<StorageService>();
 
+builder.Services.AddScoped<IAuthorService, AuthorService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IBookService, BookService>();
+builder.Services.AddScoped<IChapterService, ChapterService>();
+builder.Services.AddScoped<IBayanService, BayanService>();
+builder.Services.AddScoped<IMalfuzatService, MalfuzatService>();
+builder.Services.AddScoped<IMasailService, MasailService>();
+builder.Services.AddScoped<IDuaService, DuaService>();
+builder.Services.AddScoped<IArticleService, ArticleService>();
+builder.Services.AddScoped<INewsService, NewsService>();
+builder.Services.AddScoped<IMadrasahService, MadrasahService>();
+builder.Services.AddScoped<INamazTimeService, NamazTimeService>();
+builder.Services.AddScoped<IHijriService, HijriService>();
+builder.Services.AddScoped<IMediaService, MediaService>();
+builder.Services.AddScoped<IQuranService, QuranService>();
+
 var allowedOrigins = (Environment.GetEnvironmentVariable("ALLOWED_ORIGINS") ?? "http://localhost:3000,http://localhost:3001")
     .Split(',');
 
@@ -44,6 +60,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 app.UseHttpsRedirection();
+app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -70,23 +87,5 @@ using (var scope = app.Services.CreateScope())
         return;
     }
 }
-
-app.MapMediaEndpoints();
-app.MapAuthorEndpoints();
-app.MapCategoryEndpoints();
-app.MapBookEndpoints();
-app.MapChapterEndpoints();
-app.MapUploadEndpoints();
-app.MapMalfuzatEndpoints();
-app.MapMasailEndpoints();
-app.MapDuaEndpoints();
-app.MapBayanEndpoints();
-app.MapArticleEndpoints();
-app.MapNewsEndpoints();
-app.MapMadrasahEndpoints();
-app.MapNamazTimeEndpoints();
-app.MapHijriEndpoints();
-app.MapQuranAssetEndpoints();
-app.MapQuranTextEndpoints();
 
 app.Run();
