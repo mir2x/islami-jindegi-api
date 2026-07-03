@@ -7,7 +7,7 @@ namespace IslamiJindegiApi.Services;
 
 public class DuaService(AppDbContext db) : IDuaService
 {
-    public async Task<PagedResult<DuaListItem>> GetListAsync(int page, int pageSize, string? search, Guid? categoryId, bool? published, bool? hasAudio)
+    public async Task<PagedResult<DuaListItem>> GetListAsync(int page, int pageSize, string? search, Guid? categoryId, bool? published, bool? hasAudio, string? sort)
     {
         var query = db.Duas
             .Include(d => d.Categories)
@@ -24,9 +24,12 @@ public class DuaService(AppDbContext db) : IDuaService
                 ? query.Where(d => d.AudioUrl != null)
                 : query.Where(d => d.AudioUrl == null);
 
+        query = sort == "position_desc"
+            ? query.OrderByDescending(d => d.Position)
+            : query.OrderBy(d => d.Position);
+
         var total = await query.CountAsync();
         var data = await query
-            .OrderBy(d => d.Position)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();

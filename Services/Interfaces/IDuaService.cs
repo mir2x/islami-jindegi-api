@@ -4,7 +4,7 @@ namespace IslamiJindegiApi.Services;
 
 public interface IDuaService
 {
-    Task<PagedResult<DuaListItem>> GetListAsync(int page, int pageSize, string? search, Guid? categoryId, bool? published, bool? hasAudio);
+    Task<PagedResult<DuaListItem>> GetListAsync(int page, int pageSize, string? search, Guid? categoryId, bool? published, bool? hasAudio, string? sort);
     Task<IEnumerable<DuaCategoryOption>> GetCategoriesAsync(bool published);
     Task<DuaDetail?> GetByIdAsync(Guid id);
     Task<DuaListItem> CreateAsync(SaveDuaRequest req);

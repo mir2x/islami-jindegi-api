@@ -7,7 +7,7 @@ namespace IslamiJindegiApi.Services;
 
 public class MalfuzatService(AppDbContext db) : IMalfuzatService
 {
-    public async Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio)
+    public async Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, string? sort)
     {
         var query = db.Malfuzats
             .Include(m => m.Author)
@@ -25,9 +25,12 @@ public class MalfuzatService(AppDbContext db) : IMalfuzatService
         if (hasAudio.HasValue)
             query = query.Where(m => m.HasAudio == hasAudio.Value);
 
+        query = sort == "position_desc"
+            ? query.OrderByDescending(m => m.Position)
+            : query.OrderBy(m => m.Position);
+
         var total = await query.CountAsync();
         var data = await query
-            .OrderBy(m => m.Position)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();

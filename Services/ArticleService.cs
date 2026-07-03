@@ -7,7 +7,7 @@ namespace IslamiJindegiApi.Services;
 
 public class ArticleService(AppDbContext db) : IArticleService
 {
-    public async Task<PagedResult<ArticleListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published)
+    public async Task<PagedResult<ArticleListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, string? sort)
     {
         var query = db.Articles
             .Include(a => a.Author)
@@ -23,9 +23,12 @@ public class ArticleService(AppDbContext db) : IArticleService
         if (published.HasValue)
             query = query.Where(a => a.Published == published.Value);
 
+        query = sort == "position_desc"
+            ? query.OrderByDescending(a => a.Position)
+            : query.OrderBy(a => a.Position);
+
         var total = await query.CountAsync();
         var data = await query
-            .OrderBy(a => a.Position)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();

@@ -10,14 +10,16 @@ public class ChaptersController(IChapterService service) : ControllerBase
     [HttpGet("api/chapters")]
     public async Task<IActionResult> GetChapters(
         [FromQuery] Guid? bookId, [FromQuery] string? search,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
-        => Ok(await service.GetChaptersAsync(page, pageSize, bookId, search));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] string? sort = null)
+        => Ok(await service.GetChaptersAsync(page, pageSize, bookId, search, sort));
 
     [HttpGet("api/subchapters")]
     public async Task<IActionResult> GetSubChapters(
         [FromQuery] Guid? bookId, [FromQuery] string? search,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
-        => Ok(await service.GetSubChaptersAsync(page, pageSize, bookId, search));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] string? sort = null)
+        => Ok(await service.GetSubChaptersAsync(page, pageSize, bookId, search, sort));
 
     [HttpGet("api/books/{bookId:guid}/chapters")]
     public async Task<IActionResult> GetChaptersByBook(Guid bookId)

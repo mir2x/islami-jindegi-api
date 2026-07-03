@@ -4,8 +4,8 @@ namespace IslamiJindegiApi.Services;
 
 public interface IChapterService
 {
-    Task<PagedResult<ChapterListItem>> GetChaptersAsync(int page, int pageSize, Guid? bookId, string? search);
-    Task<PagedResult<SubChapterListItem>> GetSubChaptersAsync(int page, int pageSize, Guid? bookId, string? search);
+    Task<PagedResult<ChapterListItem>> GetChaptersAsync(int page, int pageSize, Guid? bookId, string? search, string? sort);
+    Task<PagedResult<SubChapterListItem>> GetSubChaptersAsync(int page, int pageSize, Guid? bookId, string? search, string? sort);
     Task<IEnumerable<ChapterResponse>> GetChaptersByBookAsync(Guid bookId);
     Task<ChapterDetail?> GetChapterByIdAsync(Guid id);
     Task<SubChapterDetail?> GetSubChapterByIdAsync(Guid id);

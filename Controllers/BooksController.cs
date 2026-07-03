@@ -12,8 +12,9 @@ public class BooksController(IBookService service) : ControllerBase
     public async Task<IActionResult> GetList(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null, [FromQuery] Guid? authorId = null,
-        [FromQuery] Guid? categoryId = null, [FromQuery] bool? published = null)
-        => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published));
+        [FromQuery] Guid? categoryId = null, [FromQuery] bool? published = null,
+        [FromQuery] string? sort = null)
+        => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, sort));
 
     [HttpGet("authors")]
     public async Task<IActionResult> GetAuthors([FromQuery] bool published = true)

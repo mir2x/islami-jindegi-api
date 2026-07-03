@@ -12,8 +12,9 @@ public class DuaController(IDuaService service) : ControllerBase
     public async Task<IActionResult> GetList(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null, [FromQuery] Guid? categoryId = null,
-        [FromQuery] bool? published = null, [FromQuery] bool? hasAudio = null)
-        => Ok(await service.GetListAsync(page, pageSize, search, categoryId, published, hasAudio));
+        [FromQuery] bool? published = null, [FromQuery] bool? hasAudio = null,
+        [FromQuery] string? sort = null)
+        => Ok(await service.GetListAsync(page, pageSize, search, categoryId, published, hasAudio, sort));
 
     [HttpGet("categories")]
     public async Task<IActionResult> GetCategories([FromQuery] bool published = true)

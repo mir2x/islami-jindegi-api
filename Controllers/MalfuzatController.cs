@@ -13,8 +13,8 @@ public class MalfuzatController(IMalfuzatService service) : ControllerBase
         [FromQuery] int page = 1, [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null, [FromQuery] Guid? authorId = null,
         [FromQuery] Guid? categoryId = null, [FromQuery] bool? published = null,
-        [FromQuery] bool? hasAudio = null)
-        => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, hasAudio));
+        [FromQuery] bool? hasAudio = null, [FromQuery] string? sort = null)
+        => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, hasAudio, sort));
 
     [HttpGet("authors")]
     public async Task<IActionResult> GetAuthors([FromQuery] bool published = true)

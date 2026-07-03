@@ -11,8 +11,9 @@ public class NewsController(INewsService service) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null, [FromQuery] bool? published = null)
-        => Ok(await service.GetListAsync(page, pageSize, search, published));
+        [FromQuery] string? search = null, [FromQuery] bool? published = null,
+        [FromQuery] string? sort = null)
+        => Ok(await service.GetListAsync(page, pageSize, search, published, sort));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)

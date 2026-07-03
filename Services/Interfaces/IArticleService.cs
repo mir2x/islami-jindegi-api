@@ -4,7 +4,7 @@ namespace IslamiJindegiApi.Services;
 
 public interface IArticleService
 {
-    Task<PagedResult<ArticleListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published);
+    Task<PagedResult<ArticleListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, string? sort);
     Task<IEnumerable<ArticleAuthorOption>> GetAuthorsAsync(bool published);
     Task<IEnumerable<ArticleCategoryOption>> GetCategoriesAsync(bool published);
     Task<ArticleDetail?> GetByIdAsync(Guid id);

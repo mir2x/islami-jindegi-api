@@ -7,7 +7,7 @@ namespace IslamiJindegiApi.Services;
 
 public class MasailService(AppDbContext db) : IMasailService
 {
-    public async Task<PagedResult<MasailListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio)
+    public async Task<PagedResult<MasailListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, string? sort)
     {
         var query = db.Masails
             .Include(m => m.Author)
@@ -25,9 +25,12 @@ public class MasailService(AppDbContext db) : IMasailService
         if (hasAudio.HasValue)
             query = query.Where(m => m.HasAudio == hasAudio.Value);
 
+        query = sort == "position_desc"
+            ? query.OrderByDescending(m => m.Position)
+            : query.OrderBy(m => m.Position);
+
         var total = await query.CountAsync();
         var data = await query
-            .OrderBy(m => m.Position)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();

@@ -7,7 +7,7 @@ namespace IslamiJindegiApi.Services;
 
 public class BookService(AppDbContext db) : IBookService
 {
-    public async Task<PagedResult<BookListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published)
+    public async Task<PagedResult<BookListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, string? sort)
     {
         var query = db.Books
             .Include(b => b.Authors)
@@ -23,9 +23,12 @@ public class BookService(AppDbContext db) : IBookService
         if (published.HasValue)
             query = query.Where(b => b.Published == published.Value);
 
+        query = sort == "position_desc"
+            ? query.OrderByDescending(b => b.Position)
+            : query.OrderBy(b => b.Position);
+
         var total = await query.CountAsync();
         var data = await query
-            .OrderBy(b => b.Position)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(b => new { Book = b, ChapterCount = b.Chapters.Count() })

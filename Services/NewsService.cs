@@ -7,7 +7,7 @@ namespace IslamiJindegiApi.Services;
 
 public class NewsService(AppDbContext db) : INewsService
 {
-    public async Task<PagedResult<NewsListItem>> GetListAsync(int page, int pageSize, string? search, bool? published)
+    public async Task<PagedResult<NewsListItem>> GetListAsync(int page, int pageSize, string? search, bool? published, string? sort)
     {
         var query = db.News.AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
@@ -15,9 +15,12 @@ public class NewsService(AppDbContext db) : INewsService
         if (published.HasValue)
             query = query.Where(n => n.Published == published.Value);
 
+        var orderedQuery = sort == "position_desc"
+            ? query.OrderByDescending(n => n.Position)
+            : query.OrderBy(n => n.Position);
+
         var total = await query.CountAsync();
-        var data = await query
-            .OrderBy(n => n.Position)
+        var data = await orderedQuery
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(n => new NewsListItem(n.Id, n.Title, n.Excerpt, n.Language, n.Published, n.PublishedAt, n.Position, n.CreatedAt, n.UpdatedAt))
