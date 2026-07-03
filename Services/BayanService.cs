@@ -23,9 +23,12 @@ public class BayanService(AppDbContext db) : IBayanService
         if (published.HasValue)
             query = query.Where(b => b.Published == published.Value);
 
-        query = sort == "date"
-            ? query.OrderByDescending(b => b.PublishedAt)
-            : query.OrderBy(b => b.Position);
+        query = sort switch
+        {
+            "date" => query.OrderByDescending(b => b.PublishedAt),
+            "position_desc" => query.OrderByDescending(b => b.Position),
+            _ => query.OrderBy(b => b.Position),
+        };
 
         var total = await query.CountAsync();
         var data = await query
