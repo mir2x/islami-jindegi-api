@@ -85,7 +85,7 @@ public class StorageService
 
     async Task PutAsync(Stream stream, string key, string contentType)
     {
-        await _client.PutObjectAsync(new PutObjectRequest
+        var response = await _client.PutObjectAsync(new PutObjectRequest
         {
             BucketName = _bucket,
             Key = key,
@@ -93,5 +93,8 @@ public class StorageService
             ContentType = contentType,
             CannedACL = S3CannedACL.PublicRead,
         });
+
+        if ((int)response.HttpStatusCode >= 300)
+            throw new InvalidOperationException($"Storage upload failed with status {response.HttpStatusCode} for key '{key}'.");
     }
 }
