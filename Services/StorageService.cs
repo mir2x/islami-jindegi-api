@@ -39,17 +39,17 @@ public class StorageService
     public async Task<string> UploadAsync(Stream stream, string fileName, string contentType)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        var key = $"admin/{Guid.NewGuid()}{ext}";
+        var key = $"uploads/store/admin/{Guid.NewGuid()}{ext}";
         await PutAsync(stream, key, contentType);
-        return PublicBase + key;
+        return PublicBase + key.Substring("uploads/store/".Length);
     }
 
     public async Task<(string Key, string Url)> UploadWithKeyAsync(Stream stream, string fileName, string contentType)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        var key = $"admin/{Guid.NewGuid()}{ext}";
+        var key = $"uploads/store/admin/{Guid.NewGuid()}{ext}";
         await PutAsync(stream, key, contentType);
-        return (key, PublicBase + key);
+        return (key, PublicBase + key.Substring("uploads/store/".Length));
     }
 
     public async Task DeleteAsync(string key)
