@@ -89,6 +89,19 @@ public static class MediaEndpoints
             return Results.Ok(ToResponse(media));
         }).DisableAntiforgery();
 
+        group.MapPatch("/{id:guid}", async (Guid id, PatchMediaRequest req, AppDbContext db) =>
+        {
+            var media = await db.Medias.FindAsync(id);
+            if (media is null) return Results.NotFound();
+
+            if (req.FileName is not null) media.FileName = req.FileName.Trim();
+            if (req.Url is not null) media.Url = req.Url.Trim();
+            media.UpdatedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+            return Results.Ok(ToResponse(media));
+        });
+
         group.MapDelete("/{id:guid}", async (Guid id, AppDbContext db, StorageService storage) =>
         {
             var media = await db.Medias.FindAsync(id);
@@ -102,6 +115,8 @@ public static class MediaEndpoints
             return Results.NoContent();
         });
     }
+
+    record PatchMediaRequest(string? FileName, string? Url);
 
     static MediaResponse ToResponse(Media m) => new(
         m.Id, m.FileName, m.Url, m.Type, m.MimeType, m.Size,
