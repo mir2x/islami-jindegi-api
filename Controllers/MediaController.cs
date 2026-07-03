@@ -36,7 +36,16 @@ public class MediaController(IMediaService service) : ControllerBase
         }
     }
 
+    [HttpPatch("{id:guid}")]
+    public async Task<IActionResult> Patch(Guid id, [FromBody] PatchMediaRequest req)
+    {
+        var result = await service.PatchAsync(id, req.FileName, req.Url);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
         => await service.DeleteAsync(id) ? NoContent() : NotFound();
 }
+
+public record PatchMediaRequest(string? FileName, string? Url);

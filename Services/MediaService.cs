@@ -75,6 +75,19 @@ public class MediaService(AppDbContext db, StorageService storage) : IMediaServi
         return Mappers.ToMediaResponse(media);
     }
 
+    public async Task<MediaResponse?> PatchAsync(Guid id, string? fileName, string? url)
+    {
+        var media = await db.Medias.FindAsync(id);
+        if (media is null) return null;
+
+        if (fileName is not null) media.FileName = fileName.Trim();
+        if (url is not null) media.Url = url.Trim();
+        media.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        return Mappers.ToMediaResponse(media);
+    }
+
     public async Task<bool> DeleteAsync(Guid id)
     {
         var media = await db.Medias.FindAsync(id);
