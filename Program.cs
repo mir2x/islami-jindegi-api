@@ -24,7 +24,7 @@ static string BuildConnectionString(string? databaseUrl, string? fallback)
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure()));
 
 builder.Services.AddSingleton<StorageService>();
 
