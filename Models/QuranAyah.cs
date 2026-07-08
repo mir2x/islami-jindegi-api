@@ -12,6 +12,7 @@ public class QuranAyah
 
     public ICollection<QuranTranslation> Translations { get; set; } = [];
     public ICollection<QuranWord> Words { get; set; } = [];
+    public ICollection<QuranTafsir> Tafsirs { get; set; } = [];
 }
 
 [Table("quran_translations")]
@@ -33,4 +34,14 @@ public class QuranWord
     public int WordId { get; set; }
     public string ArabicWord { get; set; } = "";
     public string BengaliWord { get; set; } = "";
+}
+
+[Table("quran_tafsirs")]
+public class QuranTafsir
+{
+    public int Id { get; set; }
+    public int SurahNumber { get; set; }
+    public int AyahNumber { get; set; }
+    public string TafsirId { get; set; } = "";
+    public string TafsirText { get; set; } = "";
 }

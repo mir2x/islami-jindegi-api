@@ -29,6 +29,15 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
         "tafsir_maariful_quran_en",
     ];
 
+    public static readonly Dictionary<string, string> TafsirTitles = new()
+    {
+        ["tafsir_taqi_usmani_bn"]     = "তাকী উসমানী",
+        ["tafsir_ibn_kathir_bn"]      = "ইবনে কাছীর (বাংলা)",
+        ["tafsir_ibn_kathir_en"]      = "Ibn Kathir (English)",
+        ["tafsir_maariful_quran_bn"]  = "মা'আরিফুল কুরআন (বাংলা)",
+        ["tafsir_maariful_quran_en"]  = "Maariful Quran (English)",
+    };
+
     static readonly HashSet<string> ValidDbs =
     [
         "articles", "bayans", "books", "duas",
@@ -233,7 +242,7 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
         };
     }
 
-    public async Task<object?> GetSurahAyahsAsync(int surahNumber, string? translator)
+    public async Task<object?> GetSurahAyahsAsync(int surahNumber, string? translator, string? tafsir)
     {
         if (surahNumber < 1 || surahNumber > 114) return null;
         var surah = SurahList.FirstOrDefault(s => s.Number == surahNumber);
@@ -253,12 +262,20 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
             .OrderBy(w => w.AyahNumber).ThenBy(w => w.WordId)
             .ToListAsync();
 
+        var tafsirsQuery = db.QuranTafsirs.Where(t => t.SurahNumber == surahNumber);
+        if (tafsir is not null) tafsirsQuery = tafsirsQuery.Where(t => t.TafsirId == tafsir);
+        var tafsirs = await tafsirsQuery.ToListAsync();
+
         var translationsByAyah = translations
             .GroupBy(t => t.AyahNumber)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var wordsByAyah = words
             .GroupBy(w => w.AyahNumber)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var tafsirsByAyah = tafsirs
+            .GroupBy(t => t.AyahNumber)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var result = ayahs.Select(a => new
@@ -273,6 +290,9 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
                 : new List<object>() as object,
             words = wordsByAyah.TryGetValue(a.AyahNumber, out var ws)
                 ? ws.Select(w => new { id = w.WordId, arabic = w.ArabicWord, bengali = w.BengaliWord }).ToList()
+                : new List<object>() as object,
+            tafsirs = tafsirsByAyah.TryGetValue(a.AyahNumber, out var tfs)
+                ? tfs.Select(t => new { id = t.TafsirId, name = TafsirTitles.GetValueOrDefault(t.TafsirId, t.TafsirId), text = t.TafsirText }).ToList()
                 : new List<object>() as object,
         });
 

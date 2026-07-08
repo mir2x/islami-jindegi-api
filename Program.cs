@@ -86,6 +86,14 @@ using (var scope = app.Services.CreateScope())
         await SeedBd1447Command.RunAsync(db);
         return;
     }
+
+    if (args.Contains("--import-tafsir"))
+    {
+        var dataDir = Environment.GetEnvironmentVariable("TAFSIR_DATA_DIR")
+            ?? throw new InvalidOperationException("TAFSIR_DATA_DIR not set.");
+        await ImportTafsirCommand.RunAsync(db, dataDir);
+        return;
+    }
 }
 
 app.Run();

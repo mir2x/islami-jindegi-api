@@ -3,6 +3,7 @@ using System;
 using IslamiJindegiApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IslamiJindegiApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260708231248_AddQuranTafsir")]
+    partial class AddQuranTafsir
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -807,9 +810,6 @@ namespace IslamiJindegiApi.Migrations
                     b.Property<int>("AyahNumber")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("QuranAyahId")
-                        .HasColumnType("integer");
-
                     b.Property<int>("SurahNumber")
                         .HasColumnType("integer");
 
@@ -822,8 +822,6 @@ namespace IslamiJindegiApi.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("QuranAyahId");
 
                     b.HasIndex("SurahNumber", "AyahNumber", "TafsirId");
 
@@ -1126,13 +1124,6 @@ namespace IslamiJindegiApi.Migrations
                     b.Navigation("Author");
                 });
 
-            modelBuilder.Entity("IslamiJindegiApi.Models.QuranTafsir", b =>
-                {
-                    b.HasOne("IslamiJindegiApi.Models.QuranAyah", null)
-                        .WithMany("Tafsirs")
-                        .HasForeignKey("QuranAyahId");
-                });
-
             modelBuilder.Entity("IslamiJindegiApi.Models.QuranTranslation", b =>
                 {
                     b.HasOne("IslamiJindegiApi.Models.QuranAyah", null)
@@ -1199,8 +1190,6 @@ namespace IslamiJindegiApi.Migrations
 
             modelBuilder.Entity("IslamiJindegiApi.Models.QuranAyah", b =>
                 {
-                    b.Navigation("Tafsirs");
-
                     b.Navigation("Translations");
 
                     b.Navigation("Words");

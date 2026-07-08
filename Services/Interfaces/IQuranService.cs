@@ -3,7 +3,7 @@ namespace IslamiJindegiApi.Services;
 public interface IQuranService
 {
     IEnumerable<SurahInfo> GetSurahs();
-    Task<object?> GetSurahAyahsAsync(int surahNumber, string? translator);
+    Task<object?> GetSurahAyahsAsync(int surahNumber, string? translator, string? tafsir);
     IEnumerable<MushafEditionConfig> GetMushafs();
     MushafEditionConfig? GetMushaf(string editionId);
     (string Url, Task<long> SizeTask) GetMushafUrl(string mushafId);

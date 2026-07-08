@@ -17,9 +17,9 @@ public class QuranController(IQuranService service) : ControllerBase
         => Ok(service.GetSurahs());
 
     [HttpGet("surahs/{number:int}/ayahs")]
-    public async Task<IActionResult> GetSurahAyahs(int number, [FromQuery] string? translator)
+    public async Task<IActionResult> GetSurahAyahs(int number, [FromQuery] string? translator, [FromQuery] string? tafsir)
     {
-        var result = await service.GetSurahAyahsAsync(number, translator);
+        var result = await service.GetSurahAyahsAsync(number, translator, tafsir);
         return result is null ? NotFound() : Ok(result);
     }
 

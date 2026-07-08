@@ -38,26 +38,43 @@ public class BookService(AppDbContext db) : IBookService
             data.Select(x => Mappers.ToBookListItem(x.Book, x.ChapterCount)), total, page, pageSize);
     }
 
-    public async Task<IEnumerable<BookAuthorOption>> GetAuthorsAsync(bool published)
+    public async Task<IEnumerable<BookAuthorOption>> GetAuthorsAsync(bool published, string? search = null, int? page = null, int? pageSize = null)
     {
-        var data = await db.Authors
+        var query = db.Authors.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(a => a.Name.Contains(search));
+
+        var projected = query
             .Select(a => new { a.Id, a.Name, Count = a.Books.Count(b => b.Published == published) })
             .Where(a => a.Count > 0)
             .OrderByDescending(a => a.Count)
-            .ThenBy(a => a.Name)
-            .ToListAsync();
+            .ThenBy(a => a.Name);
+
+        var sliced = page.HasValue && pageSize.HasValue
+            ? projected.Skip((page.Value - 1) * pageSize.Value).Take(pageSize.Value)
+            : projected;
+
+        var data = await sliced.ToListAsync();
         return data.Select(a => new BookAuthorOption(a.Id, a.Name, a.Count));
     }
 
-    public async Task<IEnumerable<BookCategoryOption>> GetCategoriesAsync(bool published)
+    public async Task<IEnumerable<BookCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null)
     {
-        var data = await db.Categories
-            .Where(c => c.ParentId == null)
+        var query = db.Categories.Where(c => c.ParentId == null);
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(c => c.Title.Contains(search));
+
+        var projected = query
             .Select(c => new { c.Id, c.Title, Count = c.Books.Count(b => b.Published == published) })
             .Where(c => c.Count > 0)
             .OrderByDescending(c => c.Count)
-            .ThenBy(c => c.Title)
-            .ToListAsync();
+            .ThenBy(c => c.Title);
+
+        var sliced = page.HasValue && pageSize.HasValue
+            ? projected.Skip((page.Value - 1) * pageSize.Value).Take(pageSize.Value)
+            : projected;
+
+        var data = await sliced.ToListAsync();
         return data.Select(c => new BookCategoryOption(c.Id, c.Title, c.Count));
     }
 

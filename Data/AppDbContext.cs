@@ -25,6 +25,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<QuranAyah> QuranAyahs => Set<QuranAyah>();
     public DbSet<QuranTranslation> QuranTranslations => Set<QuranTranslation>();
     public DbSet<QuranWord> QuranWords => Set<QuranWord>();
+    public DbSet<QuranTafsir> QuranTafsirs => Set<QuranTafsir>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -85,5 +86,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<QuranWord>()
             .HasIndex(w => new { w.SurahNumber, w.AyahNumber, w.WordId });
+
+        modelBuilder.Entity<QuranTafsir>()
+            .HasIndex(t => new { t.SurahNumber, t.AyahNumber, t.TafsirId });
     }
 }
