@@ -1,4 +1,7 @@
+using System.Text.RegularExpressions;
 using IslamiJindegiApi.Data;
+using IslamiJindegiApi.DTOs;
+using IslamiJindegiApi.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
@@ -43,6 +46,17 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
         "articles", "bayans", "books", "duas",
         "madrasahs", "malfuzats", "masails", "misc",
     ];
+
+    public static readonly Dictionary<string, string> ReciterTitles = new()
+    {
+        ["abdullah-al-joohani"]                = "আব্দুল্লাহ আল জুহানী",
+        ["abdur-rahman-al-sudais"]              = "আব্দুর রহমান আল সুদাইস",
+        ["farees-abbad"]                        = "ফারিস আব্বাদ",
+        ["mishary-bin-rashid-alafasy"]          = "মিশারি রাশিদ আলাফাসি",
+        ["qari-abdul-basit"]                    = "আব্দুল বাসিত আব্দুস সামাদ",
+        ["qari-maher-al-muaiqly"]               = "মাহের আল মুয়াইক্বিলি",
+        ["qari-saud-bin-ibrahim-ash-shuraim"]   = "সৌদ আল-শুরাইম",
+    };
 
     static readonly int[] AyahCounts =
     [
@@ -203,6 +217,16 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
     public bool IsValidMushaf(string id) => ValidMushafs.Contains(id);
     public bool IsValidTafsir(string id) => ValidTafsirs.Contains(id);
     public bool IsValidDb(string id) => ValidDbs.Contains(id);
+    public bool IsValidReciter(string id) => ReciterTitles.ContainsKey(id);
+
+    public IEnumerable<object> GetReciters() =>
+        ReciterTitles.Select(kv => new { id = kv.Key, name = kv.Value });
+
+    public IEnumerable<object> GetTafsirs() =>
+        TafsirTitles.Select(kv => new { id = kv.Key, name = kv.Value });
+
+    public async Task<IEnumerable<string>> GetTranslatorsAsync() =>
+        await db.QuranTranslations.Select(t => t.TranslatorName).Distinct().OrderBy(n => n).ToListAsync();
 
     public (string Url, Task<long> SizeTask) GetMushafUrl(string mushafId)
     {
@@ -242,7 +266,33 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
         };
     }
 
-    public async Task<object?> GetSurahAyahsAsync(int surahNumber, string? translator, string? tafsir)
+    // "none" -> exclude, "all" or null/empty -> everything, otherwise a comma-separated allow-list.
+    static IQueryable<QuranTranslation> FilterTranslations(IQueryable<QuranTranslation> q, string? filter)
+    {
+        if (filter == "none") return q.Where(_ => false);
+        if (string.IsNullOrEmpty(filter) || filter == "all") return q;
+        var names = filter.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        return q.Where(t => names.Contains(t.TranslatorName));
+    }
+
+    // Same semantics as FilterTranslations, but tafsirs default to excluded (payloads are large).
+    static IQueryable<QuranTafsir> FilterTafsirs(IQueryable<QuranTafsir> q, string? filter)
+    {
+        if (string.IsNullOrEmpty(filter) || filter == "none") return q.Where(_ => false);
+        if (filter == "all") return q;
+        var ids = filter.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        return q.Where(t => ids.Contains(t.TafsirId));
+    }
+
+    static object ToTranslationDto(QuranTranslation t) => new { translator = t.TranslatorName, text = t.TranslationText };
+    static object ToWordDto(QuranWord w) => new { id = w.WordId, arabic = w.ArabicWord, bengali = w.BengaliWord };
+    static object ToTafsirDto(QuranTafsir t) => new { id = t.TafsirId, name = TafsirTitles.GetValueOrDefault(t.TafsirId, t.TafsirId), text = t.TafsirText };
+
+    /// <summary>
+    /// translations/tafsirs: null/"all" = everything, "none" = excluded, or a comma-separated allow-list
+    /// (translator names / tafsir ids respectively). words: whether to include the word-by-word breakdown.
+    /// </summary>
+    public async Task<object?> GetSurahAyahsAsync(int surahNumber, string? translations, bool words, string? tafsirs)
     {
         if (surahNumber < 1 || surahNumber > 114) return null;
         var surah = SurahList.FirstOrDefault(s => s.Number == surahNumber);
@@ -253,47 +303,27 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
             .OrderBy(a => a.AyahNumber)
             .ToListAsync();
 
-        var translations = await db.QuranTranslations
-            .Where(t => t.SurahNumber == surahNumber)
+        var translationRows = await FilterTranslations(db.QuranTranslations.Where(t => t.SurahNumber == surahNumber), translations)
             .ToListAsync();
 
-        var words = await db.QuranWords
-            .Where(w => w.SurahNumber == surahNumber)
-            .OrderBy(w => w.AyahNumber).ThenBy(w => w.WordId)
+        var wordRows = words
+            ? await db.QuranWords.Where(w => w.SurahNumber == surahNumber).OrderBy(w => w.AyahNumber).ThenBy(w => w.WordId).ToListAsync()
+            : [];
+
+        var tafsirRows = await FilterTafsirs(db.QuranTafsirs.Where(t => t.SurahNumber == surahNumber), tafsirs)
             .ToListAsync();
 
-        var tafsirsQuery = db.QuranTafsirs.Where(t => t.SurahNumber == surahNumber);
-        if (tafsir is not null) tafsirsQuery = tafsirsQuery.Where(t => t.TafsirId == tafsir);
-        var tafsirs = await tafsirsQuery.ToListAsync();
-
-        var translationsByAyah = translations
-            .GroupBy(t => t.AyahNumber)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        var wordsByAyah = words
-            .GroupBy(w => w.AyahNumber)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        var tafsirsByAyah = tafsirs
-            .GroupBy(t => t.AyahNumber)
-            .ToDictionary(g => g.Key, g => g.ToList());
+        var translationsByAyah = translationRows.GroupBy(t => t.AyahNumber).ToDictionary(g => g.Key, g => g.ToList());
+        var wordsByAyah = wordRows.GroupBy(w => w.AyahNumber).ToDictionary(g => g.Key, g => g.ToList());
+        var tafsirsByAyah = tafsirRows.GroupBy(t => t.AyahNumber).ToDictionary(g => g.Key, g => g.ToList());
 
         var result = ayahs.Select(a => new
         {
             number = a.AyahNumber,
             arabic = a.ArabicText,
-            translations = translationsByAyah.TryGetValue(a.AyahNumber, out var ts)
-                ? ts
-                    .Where(t => translator == null || t.TranslatorName == translator)
-                    .Select(t => new { translator = t.TranslatorName, text = t.TranslationText })
-                    .ToList()
-                : new List<object>() as object,
-            words = wordsByAyah.TryGetValue(a.AyahNumber, out var ws)
-                ? ws.Select(w => new { id = w.WordId, arabic = w.ArabicWord, bengali = w.BengaliWord }).ToList()
-                : new List<object>() as object,
-            tafsirs = tafsirsByAyah.TryGetValue(a.AyahNumber, out var tfs)
-                ? tfs.Select(t => new { id = t.TafsirId, name = TafsirTitles.GetValueOrDefault(t.TafsirId, t.TafsirId), text = t.TafsirText }).ToList()
-                : new List<object>() as object,
+            translations = translationsByAyah.TryGetValue(a.AyahNumber, out var ts) ? ts.Select(ToTranslationDto).ToList() : [],
+            words = wordsByAyah.TryGetValue(a.AyahNumber, out var ws) ? ws.Select(ToWordDto).ToList() : [],
+            tafsirs = tafsirsByAyah.TryGetValue(a.AyahNumber, out var tfs) ? tfs.Select(ToTafsirDto).ToList() : [],
         });
 
         return new
@@ -308,5 +338,90 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
             paraNumber = surah.ParaNumber,
             ayahs = result,
         };
+    }
+
+    /// <summary>Same filter semantics as GetSurahAyahsAsync, scoped to a single ayah.</summary>
+    public async Task<object?> GetAyahAsync(int surahNumber, int ayahNumber, string? translations, bool words, string? tafsirs)
+    {
+        if (surahNumber < 1 || surahNumber > 114) return null;
+        var surah = SurahList.FirstOrDefault(s => s.Number == surahNumber);
+        if (surah is null || ayahNumber < 1 || ayahNumber > surah.TotalAyahs) return null;
+
+        var ayah = await db.QuranAyahs.FirstOrDefaultAsync(a => a.SurahNumber == surahNumber && a.AyahNumber == ayahNumber);
+        if (ayah is null) return null;
+
+        var translationRows = await FilterTranslations(
+            db.QuranTranslations.Where(t => t.SurahNumber == surahNumber && t.AyahNumber == ayahNumber), translations).ToListAsync();
+
+        var wordRows = words
+            ? await db.QuranWords.Where(w => w.SurahNumber == surahNumber && w.AyahNumber == ayahNumber).OrderBy(w => w.WordId).ToListAsync()
+            : [];
+
+        var tafsirRows = await FilterTafsirs(
+            db.QuranTafsirs.Where(t => t.SurahNumber == surahNumber && t.AyahNumber == ayahNumber), tafsirs).ToListAsync();
+
+        return new
+        {
+            surahNumber = surah.Number,
+            ayahNumber = ayah.AyahNumber,
+            arabic = ayah.ArabicText,
+            translations = translationRows.Select(ToTranslationDto).ToList(),
+            words = wordRows.Select(ToWordDto).ToList(),
+            tafsirs = tafsirRows.Select(ToTafsirDto).ToList(),
+        };
+    }
+
+    // Arabic combining diacritics (harakat, tanwin, shadda, sukun, quranic annotation marks) + tatweel.
+    static readonly Regex ArabicDiacritics = new(
+        "[\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7-\u06E8\u06EA-\u06ED\u0640]",
+        RegexOptions.Compiled);
+    static string NormalizeArabic(string s) => ArabicDiacritics.Replace(s, "");
+
+    public async Task<PagedResult<object>> SearchAsync(string query, int page, int pageSize)
+    {
+        var arabicQuery = NormalizeArabic(query);
+
+        var arabicMatches = db.QuranAyahs
+            .Where(a => a.ArabicTextPlain != null && EF.Functions.ILike(a.ArabicTextPlain, $"%{arabicQuery}%"))
+            .Select(a => new { a.SurahNumber, a.AyahNumber });
+
+        var translationMatches = db.QuranTranslations
+            .Where(t => EF.Functions.ILike(t.TranslationText, $"%{query}%"))
+            .Select(t => new { t.SurahNumber, t.AyahNumber });
+
+        var matchedKeys = await arabicMatches.Union(translationMatches)
+            .OrderBy(k => k.SurahNumber).ThenBy(k => k.AyahNumber)
+            .ToListAsync();
+
+        var total = matchedKeys.Count;
+        var pageKeyList = matchedKeys.Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(k => (k.SurahNumber, k.AyahNumber))
+            .ToList();
+        var pageKeySet = pageKeyList.ToHashSet();
+        var surahNumbersOnPage = pageKeyList.Select(k => k.SurahNumber).ToHashSet();
+
+        // Fetch the superset (all ayahs/translations for surahs represented on this page), then
+        // narrow to the exact matched (surah, ayah) pairs in memory — composite-key IN-filtering
+        // doesn't translate reliably to SQL, and the dataset is small enough (6.2k ayahs total)
+        // for this to be cheap regardless.
+        var ayahsByKey = (await db.QuranAyahs.Where(a => surahNumbersOnPage.Contains(a.SurahNumber)).ToListAsync())
+            .Where(a => pageKeySet.Contains((a.SurahNumber, a.AyahNumber)))
+            .ToDictionary(a => (a.SurahNumber, a.AyahNumber));
+
+        var translationsByKey = (await db.QuranTranslations.Where(t => surahNumbersOnPage.Contains(t.SurahNumber)).ToListAsync())
+            .Where(t => pageKeySet.Contains((t.SurahNumber, t.AyahNumber)))
+            .GroupBy(t => (t.SurahNumber, t.AyahNumber))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var hits = pageKeyList.Select(k => (object)new
+        {
+            surahNumber = k.SurahNumber,
+            surahName = SurahList.First(s => s.Number == k.SurahNumber).NameBengali,
+            ayahNumber = k.AyahNumber,
+            arabic = ayahsByKey.TryGetValue(k, out var ayah) ? ayah.ArabicText : "",
+            translations = translationsByKey.TryGetValue(k, out var ts) ? ts.Select(ToTranslationDto).ToList() : [],
+        });
+
+        return new PagedResult<object>(hits, total, page, pageSize);
     }
 }

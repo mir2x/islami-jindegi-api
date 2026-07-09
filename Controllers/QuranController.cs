@@ -16,12 +16,54 @@ public class QuranController(IQuranService service) : ControllerBase
     public IActionResult GetSurahs()
         => Ok(service.GetSurahs());
 
+    // translations/tafsirs: omit = defaults (all translations, no tafsirs), "none" = excluded,
+    // "all" = everything, or a comma-separated allow-list (translator names / tafsir ids).
+    // `translator`/`tafsir` are kept as single-value aliases for backwards compatibility.
     [HttpGet("surahs/{number:int}/ayahs")]
-    public async Task<IActionResult> GetSurahAyahs(int number, [FromQuery] string? translator, [FromQuery] string? tafsir)
+    public async Task<IActionResult> GetSurahAyahs(
+        int number,
+        [FromQuery] string? translator, [FromQuery] string? translations,
+        [FromQuery] string? tafsir, [FromQuery] string? tafsirs,
+        [FromQuery] bool words = true)
     {
-        var result = await service.GetSurahAyahsAsync(number, translator, tafsir);
+        var result = await service.GetSurahAyahsAsync(number, translations ?? translator, words, tafsirs ?? tafsir);
         return result is null ? NotFound() : Ok(result);
     }
+
+    [HttpGet("surahs/{number:int}/ayahs/{ayahNumber:int}")]
+    public async Task<IActionResult> GetSurahAyah(
+        int number, int ayahNumber,
+        [FromQuery] string? translator, [FromQuery] string? translations,
+        [FromQuery] string? tafsir, [FromQuery] string? tafsirs,
+        [FromQuery] bool words = true)
+    {
+        var result = await service.GetAyahAsync(number, ayahNumber, translations ?? translator, words, tafsirs ?? tafsir);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string q, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+            return BadRequest(new { error = "Missing required query parameter: q." });
+        if (page < 1 || pageSize < 1 || pageSize > 100)
+            return BadRequest(new { error = "Invalid page/pageSize." });
+
+        var result = await service.SearchAsync(q, page, pageSize);
+        return Ok(result);
+    }
+
+    [HttpGet("translators")]
+    public async Task<IActionResult> GetTranslators()
+        => Ok(await service.GetTranslatorsAsync());
+
+    [HttpGet("tafsirs")]
+    public IActionResult GetTafsirs()
+        => Ok(service.GetTafsirs());
+
+    [HttpGet("reciters")]
+    public IActionResult GetReciters()
+        => Ok(service.GetReciters());
 
     [HttpGet("mushafs")]
     public IActionResult GetMushafs()
@@ -72,8 +114,8 @@ public class QuranController(IQuranService service) : ControllerBase
     [HttpPost("sura-audio-urls")]
     public async Task<IActionResult> GetSuraAudioUrls([FromBody] SuraAudioUrlsReq req)
     {
-        if (string.IsNullOrWhiteSpace(req.ReciterId))
-            return BadRequest(new { error = "Missing required parameter: reciterId." });
+        if (string.IsNullOrWhiteSpace(req.ReciterId) || !service.IsValidReciter(req.ReciterId))
+            return BadRequest(new { error = "Invalid or missing reciterId." });
         if (req.Sura < 1 || req.Sura > 114)
             return BadRequest(new { error = "Invalid sura number. Must be 1–114." });
 

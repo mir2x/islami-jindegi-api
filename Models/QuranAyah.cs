@@ -9,6 +9,7 @@ public class QuranAyah
     public int SurahNumber { get; set; }
     public int AyahNumber { get; set; }
     public string ArabicText { get; set; } = "";
+    public string? ArabicTextPlain { get; set; }
 
     public ICollection<QuranTranslation> Translations { get; set; } = [];
     public ICollection<QuranWord> Words { get; set; } = [];

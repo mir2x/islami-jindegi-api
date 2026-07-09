@@ -94,6 +94,14 @@ using (var scope = app.Services.CreateScope())
         await ImportTafsirCommand.RunAsync(db, dataDir);
         return;
     }
+
+    if (args.Contains("--import-arabic-plain"))
+    {
+        var jsonPath = Environment.GetEnvironmentVariable("ARABIC_PLAIN_JSON_PATH")
+            ?? throw new InvalidOperationException("ARABIC_PLAIN_JSON_PATH not set.");
+        await ImportArabicPlainTextCommand.RunAsync(db, jsonPath);
+        return;
+    }
 }
 
 app.Run();
