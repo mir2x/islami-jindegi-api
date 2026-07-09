@@ -5,8 +5,8 @@ namespace IslamiJindegiApi.Services;
 public interface IMasailService
 {
     Task<PagedResult<MasailListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, string? sort);
-    Task<IEnumerable<MasailAuthorOption>> GetAuthorsAsync(bool published);
-    Task<IEnumerable<MasailCategoryOption>> GetCategoriesAsync(bool published);
+    Task<IEnumerable<MasailAuthorOption>> GetAuthorsAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
+    Task<IEnumerable<MasailCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
     Task<MasailDetail?> GetByIdAsync(Guid id);
     Task<MasailListItem> CreateAsync(SaveMasailRequest req);
     Task<MasailListItem?> UpdateAsync(Guid id, SaveMasailRequest req);
