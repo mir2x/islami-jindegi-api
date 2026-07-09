@@ -37,15 +37,23 @@ public class DuaService(AppDbContext db) : IDuaService
         return new PagedResult<DuaListItem>(data.Select(Mappers.ToDuaListItem), total, page, pageSize);
     }
 
-    public async Task<IEnumerable<DuaCategoryOption>> GetCategoriesAsync(bool published)
+    public async Task<IEnumerable<DuaCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null)
     {
-        var data = await db.Categories
-            .Where(c => c.ParentId == null)
+        var query = db.Categories.Where(c => c.ParentId == null);
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(c => c.Title.Contains(search));
+
+        var projected = query
             .Select(c => new { c.Id, c.Title, Count = c.Duas.Count(d => d.Published == published) })
             .Where(c => c.Count > 0)
             .OrderByDescending(c => c.Count)
-            .ThenBy(c => c.Title)
-            .ToListAsync();
+            .ThenBy(c => c.Title);
+
+        var sliced = page.HasValue && pageSize.HasValue
+            ? projected.Skip((page.Value - 1) * pageSize.Value).Take(pageSize.Value)
+            : projected;
+
+        var data = await sliced.ToListAsync();
         return data.Select(c => new DuaCategoryOption(c.Id, c.Title, c.Count));
     }
 
