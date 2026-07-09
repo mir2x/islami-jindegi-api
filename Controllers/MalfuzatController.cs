@@ -17,12 +17,16 @@ public class MalfuzatController(IMalfuzatService service) : ControllerBase
         => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, hasAudio, sort));
 
     [HttpGet("authors")]
-    public async Task<IActionResult> GetAuthors([FromQuery] bool published = true)
-        => Ok(await service.GetAuthorsAsync(published));
+    public async Task<IActionResult> GetAuthors(
+        [FromQuery] bool published = true, [FromQuery] string? search = null,
+        [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+        => Ok(await service.GetAuthorsAsync(published, search, page, pageSize));
 
     [HttpGet("categories")]
-    public async Task<IActionResult> GetCategories([FromQuery] bool published = true)
-        => Ok(await service.GetCategoriesAsync(published));
+    public async Task<IActionResult> GetCategories(
+        [FromQuery] bool published = true, [FromQuery] string? search = null,
+        [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+        => Ok(await service.GetCategoriesAsync(published, search, page, pageSize));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
