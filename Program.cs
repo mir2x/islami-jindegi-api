@@ -40,6 +40,7 @@ builder.Services.AddScoped<IArticleService, ArticleService>();
 builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddScoped<IMadrasahService, MadrasahService>();
 builder.Services.AddScoped<INamazTimeService, NamazTimeService>();
+builder.Services.AddScoped<IPageService, PageService>();
 builder.Services.AddScoped<IHijriService, HijriService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IQuranService, QuranService>();
@@ -67,7 +68,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 
-    if (args.Contains("--migrate-data") || args.Contains("--migrate-new-modules"))
+    if (args.Contains("--migrate-data") || args.Contains("--migrate-new-modules") || args.Contains("--migrate-pages"))
     {
         var oldUrl = Environment.GetEnvironmentVariable("OLD_DATABASE_URL")
             ?? throw new InvalidOperationException("OLD_DATABASE_URL not set.");
@@ -75,6 +76,8 @@ using (var scope = app.Services.CreateScope())
 
         if (args.Contains("--migrate-new-modules"))
             await MigrateDataCommand.RunNewModulesAsync(oldConnStr, db);
+        else if (args.Contains("--migrate-pages"))
+            await MigrateDataCommand.RunPagesAsync(oldConnStr, db);
         else
             await MigrateDataCommand.RunAsync(oldConnStr, db);
 

@@ -50,6 +50,16 @@ public static class MigrateDataCommand
         Console.WriteLine("\nDone.");
     }
 
+    public static async Task RunPagesAsync(string oldConnStr, AppDbContext newDb)
+    {
+        await using var old = await OpenReadOnly(oldConnStr);
+        Console.WriteLine("Connected to old DB (read-only). Migrating Pages...\n");
+
+        await MigratePages(old, newDb);
+
+        Console.WriteLine("\nDone.");
+    }
+
     static async Task<NpgsqlConnection> OpenReadOnly(string connStr)
     {
         var conn = new NpgsqlConnection(connStr);
@@ -1101,6 +1111,46 @@ public static class MigrateDataCommand
                 existing.UpdatedAt = Utc(r[7]);
             }
             fallbackPos++;
+        }
+        await db.SaveChangesAsync();
+        Console.WriteLine($"{rows.Count} done.");
+    }
+
+    // ── Pages ─────────────────────────────────────────────────────────────────
+
+    static async Task MigratePages(NpgsqlConnection old, AppDbContext db)
+    {
+        Console.WriteLine("\n-- Pages --");
+        Console.Write("Page records... ");
+
+        var rows = await Query(old,
+            "SELECT id, title, slug, body, image_data, created_at, updated_at FROM pages ORDER BY created_at");
+
+        foreach (var r in rows)
+        {
+            var id = (Guid)r[0]!;
+            var imageUrl = ExtractTigrisImageUrl(r[4] as string);
+
+            var existing = await db.Pages.FindAsync(id);
+            if (existing is null)
+                db.Pages.Add(new Page
+                {
+                    Id = id,
+                    Title = (string)r[1]!,
+                    Slug = (string)r[2]!,
+                    Body = (string)r[3]!,
+                    ImageUrl = imageUrl,
+                    CreatedAt = Utc(r[5]),
+                    UpdatedAt = Utc(r[6])
+                });
+            else
+            {
+                existing.Title = (string)r[1]!;
+                existing.Slug = (string)r[2]!;
+                existing.Body = (string)r[3]!;
+                existing.ImageUrl = imageUrl;
+                existing.UpdatedAt = Utc(r[6]);
+            }
         }
         await db.SaveChangesAsync();
         Console.WriteLine($"{rows.Count} done.");

@@ -21,6 +21,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MadrasahInfo> MadrasahInfos => Set<MadrasahInfo>();
     public DbSet<MadrasahPhoto> MadrasahPhotos => Set<MadrasahPhoto>();
     public DbSet<NamazTime> NamazTimes => Set<NamazTime>();
+    public DbSet<Page> Pages => Set<Page>();
     public DbSet<HijriMonthSighting> HijriMonthSightings => Set<HijriMonthSighting>();
     public DbSet<QuranAyah> QuranAyahs => Set<QuranAyah>();
     public DbSet<QuranTranslation> QuranTranslations => Set<QuranTranslation>();
@@ -69,6 +70,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasMany(a => a.Categories)
             .WithMany(c => c.Articles)
             .UsingEntity(j => j.ToTable("article_categories"));
+
+        modelBuilder.Entity<Page>()
+            .HasIndex(p => p.Slug)
+            .IsUnique();
 
         modelBuilder.Entity<HijriMonthSighting>()
             .HasIndex(h => new { h.CountryCode, h.HijriYear, h.HijriMonth })

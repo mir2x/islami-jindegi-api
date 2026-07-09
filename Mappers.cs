@@ -110,4 +110,10 @@ public static class Mappers
 
     public static NamazTimeDetail ToNamazTimeDetail(NamazTime n) => new(
         n.Id, n.Title, n.TitleBn, n.Masail, n.Fazail, n.Position, n.CreatedAt, n.UpdatedAt);
+
+    public static PageListItem ToPageListItem(Page p) => new(
+        p.Id, p.Title, p.Slug, p.CreatedAt, p.UpdatedAt);
+
+    public static PageDetail ToPageDetail(Page p) => new(
+        p.Id, p.Title, p.Slug, p.Body, p.ImageUrl, p.CreatedAt, p.UpdatedAt);
 }
