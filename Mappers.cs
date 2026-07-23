@@ -5,6 +5,9 @@ namespace IslamiJindegiApi;
 
 public static class Mappers
 {
+    public static AdminResponse ToAdminResponse(Admin a) =>
+        new(a.Id, a.Email, a.DisplayName, a.CreatedAt);
+
     public static AuthorResponse ToAuthorResponse(Author a) =>
         new(a.Id, a.Name, a.Info, a.Position, a.CreatedAt, a.UpdatedAt);
 

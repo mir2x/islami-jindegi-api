@@ -15,9 +15,20 @@ public class NewsService(AppDbContext db) : INewsService
         if (published.HasValue)
             query = query.Where(n => n.Published == published.Value);
 
-        var orderedQuery = sort == "position_desc"
-            ? query.OrderByDescending(n => n.Position)
-            : query.OrderBy(n => n.Position);
+        var orderedQuery = sort switch
+        {
+            "position_desc" => query.OrderByDescending(n => n.Position),
+            "position_asc" => query.OrderBy(n => n.Position),
+            "title_asc" => query.OrderBy(n => n.Title),
+            "title_desc" => query.OrderByDescending(n => n.Title),
+            "language_asc" => query.OrderBy(n => n.Language),
+            "language_desc" => query.OrderByDescending(n => n.Language),
+            "date_asc" => query.OrderBy(n => n.PublishedAt),
+            "date_desc" => query.OrderByDescending(n => n.PublishedAt),
+            "published_asc" => query.OrderBy(n => n.Published).ThenBy(n => n.Position),
+            "published_desc" => query.OrderByDescending(n => n.Published).ThenBy(n => n.Position),
+            _ => query.OrderBy(n => n.Position),
+        };
 
         var total = await query.CountAsync();
         var data = await orderedQuery

@@ -1,5 +1,6 @@
 using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IslamiJindegiApi.Controllers;
@@ -35,6 +36,7 @@ public class BooksController(IBookService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SaveBookRequest req)
     {
@@ -42,6 +44,7 @@ public class BooksController(IBookService service) : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
+    [Authorize]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] SaveBookRequest req)
     {
@@ -49,6 +52,7 @@ public class BooksController(IBookService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
         => await service.DeleteAsync(id) ? NoContent() : NotFound();

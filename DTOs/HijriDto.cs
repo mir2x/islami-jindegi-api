@@ -35,14 +35,18 @@ public record HijriDateData(
     string MonthNameBn);
 
 public record HijriDateMeta(
-    string CountryCode,
-    string ResolvedBy,
-    int OffsetDays,
-    DateOnly SaGregorianStartDate,
-    DateOnly GregorianStartDate,
-    DateOnly NextGregorianStartDate);
+    bool Fallback,
+    string? Reason,
+    string? CountryCode,
+    string? ResolvedBy,
+    int? OffsetDays,
+    DateOnly? SaGregorianStartDate,
+    DateOnly? GregorianStartDate,
+    DateOnly? NextGregorianStartDate);
 
-public record HijriDateResponse(HijriDateData Data, HijriDateMeta Meta);
+// Data is null (and Meta.Fallback true) when the date can't be resolved — clients
+// treat that as "use your local fallback", it is not an error condition.
+public record HijriDateResponse(HijriDateData? Data, HijriDateMeta Meta);
 
 public record HijriMonthData(
     int HijriYear,
@@ -55,9 +59,11 @@ public record HijriMonthData(
     DateOnly NextGregorianStartDate);
 
 public record HijriMonthMeta(
-    string CountryCode,
-    string ResolvedBy,
-    int OffsetDays,
-    DateOnly SaGregorianStartDate);
+    bool Fallback,
+    string? Reason,
+    string? CountryCode,
+    string? ResolvedBy,
+    int? OffsetDays,
+    DateOnly? SaGregorianStartDate);
 
-public record HijriMonthResponse(HijriMonthData Data, HijriMonthMeta Meta);
+public record HijriMonthResponse(HijriMonthData? Data, HijriMonthMeta Meta);

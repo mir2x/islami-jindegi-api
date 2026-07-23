@@ -15,18 +15,21 @@ public class HijriService(AppDbContext db) : IHijriService
 
     static readonly Dictionary<int, (string En, string Ar, string Bn)> MonthNames = new()
     {
+        // Bangla spellings are the canonical set shared 1:1 with the Flutter app's
+        // l10n (app_bn.arb / hijriMonthsBengali) and the web's HIJRI_MONTHS_BN —
+        // keep all three in sync when changing any of them.
         [1]  = ("Muharram",       "محرم",          "মুহাররম"),
         [2]  = ("Safar",          "صفر",           "সফর"),
         [3]  = ("Rabi' al-Awwal", "ربيع الأول",    "রবিউল আউয়াল"),
         [4]  = ("Rabi' al-Thani", "ربيع الثاني",   "রবিউস সানি"),
         [5]  = ("Jumada al-Ula",  "جمادى الأولى",  "জুমাদাল উলা"),
-        [6]  = ("Jumada al-Thani","جمادى الثانية", "জুমাদাস সানি"),
+        [6]  = ("Jumada al-Thani","جمادى الثانية", "জুমাদাল উখরা"),
         [7]  = ("Rajab",          "رجب",           "রজব"),
         [8]  = ("Sha'ban",        "شعبان",         "শাবান"),
-        [9]  = ("Ramadan",        "رمضان",         "রমজান"),
-        [10] = ("Shawwal",        "شوال",          "শাওয়াল"),
-        [11] = ("Dhu al-Qi'dah",  "ذو القعدة",     "জিলক্বদ"),
-        [12] = ("Dhu al-Hijjah",  "ذو الحجة",      "জিলহজ"),
+        [9]  = ("Ramadan",        "رمضان",         "রমাযান"),
+        [10] = ("Shawwal",        "شوال",          "শাউয়াল"),
+        [11] = ("Dhu al-Qi'dah",  "ذو القعدة",     "যিলক্বদ"),
+        [12] = ("Dhu al-Hijjah",  "ذو الحجة",      "যিলহাজ্জ"),
     };
 
     static readonly UmAlQuraCalendar Cal = new();
@@ -67,11 +70,15 @@ public class HijriService(AppDbContext db) : IHijriService
 
                 return (new HijriDateResponse(
                     new HijriDateData(hy, hm, day, monthLength, names.En, names.Ar, names.Bn),
-                    new HijriDateMeta(countryCode.ToUpperInvariant(), source, offset, saStart, start, nextStart)), null);
+                    new HijriDateMeta(false, null, countryCode.ToUpperInvariant(), source, offset, saStart, start, nextStart)), null);
             }
         }
 
-        return (null, "Could not resolve Hijri date for the given input.");
+        // Unresolvable (e.g. contradictory overrides): not an error — signal fallback so
+        // clients switch to their local calculation.
+        return (new HijriDateResponse(
+            null,
+            new HijriDateMeta(true, "no_data", countryCode.ToUpperInvariant(), null, null, null, null, null)), null);
     }
 
     public async Task<(HijriMonthResponse? Result, string? Error)> GetMonthAsync(string countryCode, int hijriYear, int hijriMonth)
@@ -83,11 +90,21 @@ public class HijriService(AppDbContext db) : IHijriService
         var (nextStart, _,      _,      _)       = await ResolveStartAsync(countryCode, NextMonth(hijriYear, hijriMonth));
 
         var monthLength = nextStart.DayNumber - start.DayNumber;
-        var names       = MonthNames[hijriMonth];
+
+        // Contradictory overrides can make a month non-positive in length; treat as
+        // unresolvable rather than serving a nonsensical window.
+        if (monthLength <= 0)
+        {
+            return (new HijriMonthResponse(
+                null,
+                new HijriMonthMeta(true, "no_data", countryCode.ToUpperInvariant(), null, null, null)), null);
+        }
+
+        var names = MonthNames[hijriMonth];
 
         return (new HijriMonthResponse(
             new HijriMonthData(hijriYear, hijriMonth, monthLength, names.En, names.Ar, names.Bn, start, nextStart),
-            new HijriMonthMeta(countryCode.ToUpperInvariant(), source, offset, saStart)), null);
+            new HijriMonthMeta(false, null, countryCode.ToUpperInvariant(), source, offset, saStart)), null);
     }
 
     public async Task<PagedResult<HijriMonthSightingResponse>> GetSightingsAsync(int page, int pageSize, string? countryCode, int? hijriYear)

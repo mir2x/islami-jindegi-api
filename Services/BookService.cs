@@ -23,9 +23,20 @@ public class BookService(AppDbContext db) : IBookService
         if (published.HasValue)
             query = query.Where(b => b.Published == published.Value);
 
-        query = sort == "position_desc"
-            ? query.OrderByDescending(b => b.Position)
-            : query.OrderBy(b => b.Position);
+        query = sort switch
+        {
+            "position_desc" => query.OrderByDescending(b => b.Position),
+            "position_asc" => query.OrderBy(b => b.Position),
+            "title_asc" => query.OrderBy(b => b.Title),
+            "title_desc" => query.OrderByDescending(b => b.Title),
+            "authors_asc" => query.OrderBy(b => b.Authors.OrderBy(a => a.Name).Select(a => a.Name).FirstOrDefault()),
+            "authors_desc" => query.OrderByDescending(b => b.Authors.OrderBy(a => a.Name).Select(a => a.Name).FirstOrDefault()),
+            "updated_asc" => query.OrderBy(b => b.UpdatedAt),
+            "updated_desc" => query.OrderByDescending(b => b.UpdatedAt),
+            "published_asc" => query.OrderBy(b => b.Published).ThenBy(b => b.Position),
+            "published_desc" => query.OrderByDescending(b => b.Published).ThenBy(b => b.Position),
+            _ => query.OrderBy(b => b.Position),
+        };
 
         var total = await query.CountAsync();
         var data = await query

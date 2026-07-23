@@ -25,8 +25,22 @@ public class BayanService(AppDbContext db) : IBayanService
 
         query = sort switch
         {
+            // "date" predates the sortable admin columns and is used by the public site — keep it.
             "date" => query.OrderByDescending(b => b.PublishedAt),
             "position_desc" => query.OrderByDescending(b => b.Position),
+            "position_asc" => query.OrderBy(b => b.Position),
+            "title_asc" => query.OrderBy(b => b.Title),
+            "title_desc" => query.OrderByDescending(b => b.Title),
+            "author_asc" => query.OrderBy(b => b.Author.Name),
+            "author_desc" => query.OrderByDescending(b => b.Author.Name),
+            "language_asc" => query.OrderBy(b => b.Language),
+            "language_desc" => query.OrderByDescending(b => b.Language),
+            "location_asc" => query.OrderBy(b => b.Location),
+            "location_desc" => query.OrderByDescending(b => b.Location),
+            "date_asc" => query.OrderBy(b => b.PublishedAt),
+            "date_desc" => query.OrderByDescending(b => b.PublishedAt),
+            "published_asc" => query.OrderBy(b => b.Published).ThenBy(b => b.Position),
+            "published_desc" => query.OrderByDescending(b => b.Published).ThenBy(b => b.Position),
             _ => query.OrderBy(b => b.Position),
         };
 

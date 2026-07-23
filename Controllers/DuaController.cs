@@ -1,5 +1,6 @@
 using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IslamiJindegiApi.Controllers;
@@ -29,6 +30,7 @@ public class DuaController(IDuaService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SaveDuaRequest req)
     {
@@ -36,6 +38,7 @@ public class DuaController(IDuaService service) : ControllerBase
         return Created($"/api/dua/{result.Id}", result);
     }
 
+    [Authorize]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] SaveDuaRequest req)
     {
@@ -43,6 +46,7 @@ public class DuaController(IDuaService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
         => await service.DeleteAsync(id) ? NoContent() : NotFound();

@@ -13,10 +13,22 @@ public class ChapterService(AppDbContext db) : IChapterService
         if (bookId.HasValue) query = query.Where(c => c.BookId == bookId.Value);
         if (!string.IsNullOrWhiteSpace(search)) query = query.Where(c => c.Title.Contains(search));
 
+        // Default (no/unknown sort) groups chapters under their book, then orders within it.
+        var ordered = sort switch
+        {
+            "position_desc" => query.OrderByDescending(c => c.Position),
+            "position_asc" => query.OrderBy(c => c.Position),
+            "title_asc" => query.OrderBy(c => c.Title),
+            "title_desc" => query.OrderByDescending(c => c.Title),
+            "book_asc" => query.OrderBy(c => c.Book.Title).ThenBy(c => c.Position),
+            "book_desc" => query.OrderByDescending(c => c.Book.Title).ThenBy(c => c.Position),
+            "subs_asc" => query.OrderBy(c => c.SubChapters.Count).ThenBy(c => c.Position),
+            "subs_desc" => query.OrderByDescending(c => c.SubChapters.Count).ThenBy(c => c.Position),
+            _ => query.OrderBy(c => c.Book.Position).ThenBy(c => c.Position),
+        };
+
         var total = await query.CountAsync();
-        var data = await (sort == "position_desc"
-                ? query.OrderByDescending(c => c.Position)
-                : query.OrderBy(c => c.Book.Position).ThenBy(c => c.Position))
+        var data = await ordered
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(c => new ChapterListItem(c.Id, c.Title, c.Position, c.BookId, c.Book.Title, c.SubChapters.Count))
             .ToListAsync();
@@ -30,10 +42,22 @@ public class ChapterService(AppDbContext db) : IChapterService
         if (bookId.HasValue) query = query.Where(s => s.Chapter.BookId == bookId.Value);
         if (!string.IsNullOrWhiteSpace(search)) query = query.Where(s => s.Title.Contains(search));
 
+        // Default (no/unknown sort) groups subchapters under their chapter, then orders within it.
+        var ordered = sort switch
+        {
+            "position_desc" => query.OrderByDescending(s => s.Position),
+            "position_asc" => query.OrderBy(s => s.Position),
+            "title_asc" => query.OrderBy(s => s.Title),
+            "title_desc" => query.OrderByDescending(s => s.Title),
+            "chapter_asc" => query.OrderBy(s => s.Chapter.Title).ThenBy(s => s.Position),
+            "chapter_desc" => query.OrderByDescending(s => s.Chapter.Title).ThenBy(s => s.Position),
+            "book_asc" => query.OrderBy(s => s.Chapter.Book.Title).ThenBy(s => s.Position),
+            "book_desc" => query.OrderByDescending(s => s.Chapter.Book.Title).ThenBy(s => s.Position),
+            _ => query.OrderBy(s => s.Chapter.Position).ThenBy(s => s.Position),
+        };
+
         var total = await query.CountAsync();
-        var data = await (sort == "position_desc"
-                ? query.OrderByDescending(s => s.Position)
-                : query.OrderBy(s => s.Chapter.Position).ThenBy(s => s.Position))
+        var data = await ordered
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(s => new SubChapterListItem(s.Id, s.Title, s.Position, s.ChapterId, s.Chapter.Title, s.Chapter.BookId, s.Chapter.Book.Title, s.ParentSubChapterId))
             .ToListAsync();

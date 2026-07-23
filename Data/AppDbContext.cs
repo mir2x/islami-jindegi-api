@@ -5,6 +5,7 @@ namespace IslamiJindegiApi.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+    public DbSet<Admin> Admins => Set<Admin>();
     public DbSet<Media> Medias => Set<Media>();
     public DbSet<Author> Authors => Set<Author>();
     public DbSet<Category> Categories => Set<Category>();
@@ -30,6 +31,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Admin>()
+            .HasIndex(a => a.Email)
+            .IsUnique();
+
         modelBuilder.Entity<Category>()
             .HasOne(c => c.Parent)
             .WithMany(c => c.Children)

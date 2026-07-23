@@ -1,5 +1,6 @@
 using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IslamiJindegiApi.Controllers;
@@ -39,6 +40,7 @@ public class ChaptersController(IChapterService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpPost("api/books/{bookId:guid}/chapters")]
     public async Task<IActionResult> CreateChapter(Guid bookId, [FromBody] SaveChapterRequest req)
     {
@@ -47,6 +49,7 @@ public class ChaptersController(IChapterService service) : ControllerBase
         return Created($"/api/chapters/{chapter!.Id}", chapter);
     }
 
+    [Authorize]
     [HttpPut("api/chapters/{id:guid}")]
     public async Task<IActionResult> UpdateChapter(Guid id, [FromBody] SaveChapterRequest req)
     {
@@ -54,10 +57,12 @@ public class ChaptersController(IChapterService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpDelete("api/chapters/{id:guid}")]
     public async Task<IActionResult> DeleteChapter(Guid id)
         => await service.DeleteChapterAsync(id) ? NoContent() : NotFound();
 
+    [Authorize]
     [HttpPost("api/subchapters")]
     public async Task<IActionResult> CreateSubChapter([FromBody] CreateSubChapterRequest req)
     {
@@ -66,6 +71,7 @@ public class ChaptersController(IChapterService service) : ControllerBase
         return Created($"/api/subchapters/{sub!.Id}", sub);
     }
 
+    [Authorize]
     [HttpPost("api/chapters/{chapterId:guid}/subchapters")]
     public async Task<IActionResult> CreateSubChapterUnderChapter(Guid chapterId, [FromBody] SaveSubChapterRequest req)
     {
@@ -74,6 +80,7 @@ public class ChaptersController(IChapterService service) : ControllerBase
         return Created($"/api/subchapters/{sub!.Id}", sub);
     }
 
+    [Authorize]
     [HttpPut("api/subchapters/{id:guid}")]
     public async Task<IActionResult> UpdateSubChapter(Guid id, [FromBody] SaveSubChapterRequest req)
     {
@@ -81,6 +88,7 @@ public class ChaptersController(IChapterService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpDelete("api/subchapters/{id:guid}")]
     public async Task<IActionResult> DeleteSubChapter(Guid id)
         => await service.DeleteSubChapterAsync(id) ? NoContent() : NotFound();

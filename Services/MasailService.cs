@@ -25,9 +25,22 @@ public class MasailService(AppDbContext db) : IMasailService
         if (hasAudio.HasValue)
             query = query.Where(m => m.HasAudio == hasAudio.Value);
 
-        query = sort == "position_desc"
-            ? query.OrderByDescending(m => m.Position)
-            : query.OrderBy(m => m.Position);
+        query = sort switch
+        {
+            "position_desc" => query.OrderByDescending(m => m.Position),
+            "position_asc" => query.OrderBy(m => m.Position),
+            "title_asc" => query.OrderBy(m => m.Title),
+            "title_desc" => query.OrderByDescending(m => m.Title),
+            "author_asc" => query.OrderBy(m => m.Author!.Name),
+            "author_desc" => query.OrderByDescending(m => m.Author!.Name),
+            "language_asc" => query.OrderBy(m => m.Language),
+            "language_desc" => query.OrderByDescending(m => m.Language),
+            "audio_asc" => query.OrderBy(m => m.HasAudio).ThenBy(m => m.Position),
+            "audio_desc" => query.OrderByDescending(m => m.HasAudio).ThenBy(m => m.Position),
+            "published_asc" => query.OrderBy(m => m.Published).ThenBy(m => m.Position),
+            "published_desc" => query.OrderByDescending(m => m.Published).ThenBy(m => m.Position),
+            _ => query.OrderBy(m => m.Position),
+        };
 
         var total = await query.CountAsync();
         var data = await query

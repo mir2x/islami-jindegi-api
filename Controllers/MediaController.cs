@@ -1,4 +1,5 @@
 using IslamiJindegiApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IslamiJindegiApi.Controllers;
@@ -20,6 +21,7 @@ public class MediaController(IMediaService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpPost("upload")]
     [DisableRequestSizeLimit]
     [IgnoreAntiforgeryToken]
@@ -36,6 +38,7 @@ public class MediaController(IMediaService service) : ControllerBase
         }
     }
 
+    [Authorize]
     [HttpPatch("{id:guid}")]
     public async Task<IActionResult> Patch(Guid id, [FromBody] PatchMediaRequest req)
     {
@@ -43,6 +46,7 @@ public class MediaController(IMediaService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
         => await service.DeleteAsync(id) ? NoContent() : NotFound();

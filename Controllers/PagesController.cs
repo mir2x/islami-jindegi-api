@@ -1,5 +1,6 @@
 using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IslamiJindegiApi.Controllers;
@@ -28,6 +29,7 @@ public class PagesController(IPageService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SavePageRequest req)
     {
@@ -36,6 +38,7 @@ public class PagesController(IPageService service) : ControllerBase
         return Created($"/api/pages/{item!.Id}", item);
     }
 
+    [Authorize]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] SavePageRequest req)
     {
@@ -44,6 +47,7 @@ public class PagesController(IPageService service) : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    [Authorize]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
         => await service.DeleteAsync(id) ? NoContent() : NotFound();

@@ -7,15 +7,23 @@ namespace IslamiJindegiApi.Services;
 
 public class AuthorService(AppDbContext db) : IAuthorService
 {
-    public async Task<PagedResult<AuthorResponse>> GetListAsync(int page, int pageSize, string? search)
+    public async Task<PagedResult<AuthorResponse>> GetListAsync(int page, int pageSize, string? search, string? sort = null)
     {
         var query = db.Authors.AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(a => a.Name.Contains(search));
 
+        query = sort switch
+        {
+            "position_desc" => query.OrderByDescending(a => a.Position),
+            "position_asc" => query.OrderBy(a => a.Position),
+            "name_asc" => query.OrderBy(a => a.Name),
+            "name_desc" => query.OrderByDescending(a => a.Name),
+            _ => query.OrderBy(a => a.Position),
+        };
+
         var total = await query.CountAsync();
         var data = await query
-            .OrderBy(a => a.Position)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(a => Mappers.ToAuthorResponse(a))

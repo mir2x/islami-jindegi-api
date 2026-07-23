@@ -4,7 +4,7 @@ namespace IslamiJindegiApi.Services;
 
 public interface IAuthorService
 {
-    Task<PagedResult<AuthorResponse>> GetListAsync(int page, int pageSize, string? search);
+    Task<PagedResult<AuthorResponse>> GetListAsync(int page, int pageSize, string? search, string? sort = null);
     Task<AuthorResponse?> GetByIdAsync(Guid id);
     Task<AuthorResponse> CreateAsync(CreateAuthorRequest req);
     Task<AuthorResponse?> UpdateAsync(Guid id, UpdateAuthorRequest req);

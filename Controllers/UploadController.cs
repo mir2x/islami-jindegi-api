@@ -1,4 +1,5 @@
 using IslamiJindegiApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IslamiJindegiApi.Controllers;
@@ -12,6 +13,7 @@ public class UploadController(StorageService storage) : ControllerBase
     const long MaxImageBytes = 10 * 1024 * 1024;
     const long MaxDocumentBytes = 100 * 1024 * 1024;
 
+    [Authorize]
     [HttpPost("image")]
     [DisableRequestSizeLimit]
     [IgnoreAntiforgeryToken]
@@ -27,6 +29,7 @@ public class UploadController(StorageService storage) : ControllerBase
         return Ok(new { url });
     }
 
+    [Authorize]
     [HttpPost("document")]
     [DisableRequestSizeLimit]
     [IgnoreAntiforgeryToken]

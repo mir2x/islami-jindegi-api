@@ -24,9 +24,20 @@ public class DuaService(AppDbContext db) : IDuaService
                 ? query.Where(d => d.AudioUrl != null)
                 : query.Where(d => d.AudioUrl == null);
 
-        query = sort == "position_desc"
-            ? query.OrderByDescending(d => d.Position)
-            : query.OrderBy(d => d.Position);
+        query = sort switch
+        {
+            "position_desc" => query.OrderByDescending(d => d.Position),
+            "position_asc" => query.OrderBy(d => d.Position),
+            "title_asc" => query.OrderBy(d => d.Title),
+            "title_desc" => query.OrderByDescending(d => d.Title),
+            "categories_asc" => query.OrderBy(d => d.Categories.OrderBy(c => c.Title).Select(c => c.Title).FirstOrDefault()),
+            "categories_desc" => query.OrderByDescending(d => d.Categories.OrderBy(c => c.Title).Select(c => c.Title).FirstOrDefault()),
+            "language_asc" => query.OrderBy(d => d.Language),
+            "language_desc" => query.OrderByDescending(d => d.Language),
+            "published_asc" => query.OrderBy(d => d.Published).ThenBy(d => d.Position),
+            "published_desc" => query.OrderByDescending(d => d.Published).ThenBy(d => d.Position),
+            _ => query.OrderBy(d => d.Position),
+        };
 
         var total = await query.CountAsync();
         var data = await query

@@ -1,5 +1,6 @@
 using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IslamiJindegiApi.Controllers;
@@ -16,8 +17,7 @@ public class HijriController(IHijriService service) : ControllerBase
             return BadRequest(new { error = "country-code is required" });
 
         var (result, error) = await service.GetDateAsync(countryCode, date);
-        if (error == "date must be yyyy-MM-dd") return BadRequest(new { error });
-        if (result is null) return Problem("Could not resolve Hijri date for the given input.");
+        if (error is not null) return BadRequest(new { error });
         return Ok(result);
     }
 
@@ -48,6 +48,7 @@ public class HijriController(IHijriService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
     [HttpPost("api/hijri/sightings")]
     public async Task<IActionResult> CreateSighting([FromBody] CreateHijriSightingRequest req)
     {
@@ -57,6 +58,7 @@ public class HijriController(IHijriService service) : ControllerBase
         return Created($"/api/hijri/sightings/{item!.Id}", item);
     }
 
+    [Authorize]
     [HttpPut("api/hijri/sightings/{id:guid}")]
     public async Task<IActionResult> UpdateSighting(Guid id, [FromBody] UpdateHijriSightingRequest req)
     {
@@ -67,6 +69,7 @@ public class HijriController(IHijriService service) : ControllerBase
         return Ok(item);
     }
 
+    [Authorize]
     [HttpDelete("api/hijri/sightings/{id:guid}")]
     public async Task<IActionResult> DeleteSighting(Guid id)
         => await service.DeleteSightingAsync(id) ? NoContent() : NotFound();

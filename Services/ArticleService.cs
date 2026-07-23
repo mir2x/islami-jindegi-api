@@ -23,9 +23,20 @@ public class ArticleService(AppDbContext db) : IArticleService
         if (published.HasValue)
             query = query.Where(a => a.Published == published.Value);
 
-        query = sort == "position_desc"
-            ? query.OrderByDescending(a => a.Position)
-            : query.OrderBy(a => a.Position);
+        query = sort switch
+        {
+            "position_desc" => query.OrderByDescending(a => a.Position),
+            "position_asc" => query.OrderBy(a => a.Position),
+            "title_asc" => query.OrderBy(a => a.Title),
+            "title_desc" => query.OrderByDescending(a => a.Title),
+            "author_asc" => query.OrderBy(a => a.Author!.Name),
+            "author_desc" => query.OrderByDescending(a => a.Author!.Name),
+            "language_asc" => query.OrderBy(a => a.Language),
+            "language_desc" => query.OrderByDescending(a => a.Language),
+            "published_asc" => query.OrderBy(a => a.Published).ThenBy(a => a.Position),
+            "published_desc" => query.OrderByDescending(a => a.Published).ThenBy(a => a.Position),
+            _ => query.OrderBy(a => a.Position),
+        };
 
         var total = await query.CountAsync();
         var data = await query

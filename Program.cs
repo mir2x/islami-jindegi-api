@@ -1,7 +1,10 @@
+using System.Text;
 using IslamiJindegiApi.Commands;
 using IslamiJindegiApi.Data;
 using IslamiJindegiApi.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +47,24 @@ builder.Services.AddScoped<IPageService, PageService>();
 builder.Services.AddScoped<IHijriService, HijriService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IQuranService, QuranService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+
+var adminJwtSecret = Environment.GetEnvironmentVariable("ADMIN_JWT_SECRET")
+    ?? throw new InvalidOperationException("ADMIN_JWT_SECRET not set.");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(adminJwtSecret))
+        };
+    });
+builder.Services.AddAuthorization();
 
 var allowedOrigins = (Environment.GetEnvironmentVariable("ALLOWED_ORIGINS") ?? "http://localhost:3000,http://localhost:3001")
     .Split(',');
@@ -61,6 +82,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
