@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
 
-public class ChapterService(AppDbContext db) : IChapterService
+public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) : IChapterService
 {
     public async Task<PagedResult<ChapterListItem>> GetChaptersAsync(int page, int pageSize, Guid? bookId, string? search, string? sort)
     {
@@ -122,6 +122,7 @@ public class ChapterService(AppDbContext db) : IChapterService
         db.Chapters.Add(chapter);
         await db.SaveChangesAsync();
         chapter.SubChapters = [];
+        if (book.IsOfflineAvailable) await syncNotifier.NotifyAsync("books");
         return (Mappers.ToChapterResponse(chapter), false);
     }
 
@@ -136,6 +137,7 @@ public class ChapterService(AppDbContext db) : IChapterService
         chapter.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        if (await IsBookOfflineAvailableAsync(chapter.BookId)) await syncNotifier.NotifyAsync("books");
         return Mappers.ToChapterResponse(chapter);
     }
 
@@ -143,10 +145,22 @@ public class ChapterService(AppDbContext db) : IChapterService
     {
         var chapter = await db.Chapters.FindAsync(id);
         if (chapter is null) return false;
+        var wasBookOfflineAvailable = await IsBookOfflineAvailableAsync(chapter.BookId);
         db.Chapters.Remove(chapter);
         await db.SaveChangesAsync();
+        if (wasBookOfflineAvailable) await syncNotifier.NotifyAsync("books");
         return true;
     }
+
+    // Chapters/SubChapters have their own controller endpoints independent of
+    // BooksController, so a chapter-only edit never touches the parent Book row —
+    // these helpers look up the owning book's offline flag to decide whether an
+    // edit here is worth notifying the app about.
+    async Task<bool> IsBookOfflineAvailableAsync(Guid bookId)
+        => await db.Books.Where(b => b.Id == bookId).Select(b => b.IsOfflineAvailable).FirstOrDefaultAsync();
+
+    async Task<bool> IsBookOfflineAvailableViaChapterAsync(Guid chapterId)
+        => await db.Chapters.Where(c => c.Id == chapterId).Select(c => c.Book.IsOfflineAvailable).FirstOrDefaultAsync();
 
     public async Task<(SubChapterResponse? Sub, bool ChapterNotFound)> CreateSubChapterAsync(CreateSubChapterRequest req)
     {
@@ -170,6 +184,7 @@ public class ChapterService(AppDbContext db) : IChapterService
         };
         db.SubChapters.Add(sub);
         await db.SaveChangesAsync();
+        if (await IsBookOfflineAvailableAsync(chapter.BookId)) await syncNotifier.NotifyAsync("books");
         return (Mappers.ToSubChapterResponse(sub), false);
     }
 
@@ -195,6 +210,7 @@ public class ChapterService(AppDbContext db) : IChapterService
         };
         db.SubChapters.Add(sub);
         await db.SaveChangesAsync();
+        if (await IsBookOfflineAvailableAsync(chapter.BookId)) await syncNotifier.NotifyAsync("books");
         return (Mappers.ToSubChapterResponse(sub), false);
     }
 
@@ -211,6 +227,7 @@ public class ChapterService(AppDbContext db) : IChapterService
         sub.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        if (await IsBookOfflineAvailableViaChapterAsync(sub.ChapterId)) await syncNotifier.NotifyAsync("books");
         return Mappers.ToSubChapterResponse(sub);
     }
 
@@ -218,8 +235,10 @@ public class ChapterService(AppDbContext db) : IChapterService
     {
         var sub = await db.SubChapters.FindAsync(id);
         if (sub is null) return false;
+        var wasBookOfflineAvailable = await IsBookOfflineAvailableViaChapterAsync(sub.ChapterId);
         db.SubChapters.Remove(sub);
         await db.SaveChangesAsync();
+        if (wasBookOfflineAvailable) await syncNotifier.NotifyAsync("books");
         return true;
     }
 }

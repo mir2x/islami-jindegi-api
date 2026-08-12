@@ -12,6 +12,7 @@ public record BookListItem(
     int Position,
     DateTime? PublishedAt,
     bool Published,
+    bool IsOfflineAvailable,
     DateTime CreatedAt,
     DateTime UpdatedAt,
     List<AuthorResponse> Authors,
@@ -30,6 +31,7 @@ public record BookDetail(
     int Position,
     DateTime? PublishedAt,
     bool Published,
+    bool IsOfflineAvailable,
     DateTime CreatedAt,
     DateTime UpdatedAt,
     List<AuthorResponse> Authors,
@@ -49,6 +51,8 @@ public record SaveBookRequest(
     bool Published,
     List<Guid> AuthorIds,
     List<Guid> CategoryIds);
+
+public record SetOfflineAvailabilityRequest(bool IsOfflineAvailable);
 
 public record BookAuthorOption(Guid Id, string Name, int Count);
 

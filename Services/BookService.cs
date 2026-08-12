@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
 
-public class BookService(AppDbContext db) : IBookService
+public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IBookService
 {
-    public async Task<PagedResult<BookListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, string? sort)
+    public async Task<PagedResult<BookListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort)
     {
         var query = db.Books
             .Include(b => b.Authors)
@@ -22,6 +22,8 @@ public class BookService(AppDbContext db) : IBookService
             query = query.Where(b => b.Categories.Any(c => c.Id == categoryId));
         if (published.HasValue)
             query = query.Where(b => b.Published == published.Value);
+        if (offlineAvailable.HasValue)
+            query = query.Where(b => b.IsOfflineAvailable == offlineAvailable.Value);
 
         query = sort switch
         {
@@ -100,6 +102,27 @@ public class BookService(AppDbContext db) : IBookService
         return book is null ? null : Mappers.ToBookDetail(book);
     }
 
+    public async Task<IEnumerable<BookDetail>> GetOfflineSyncAsync(DateTime? since)
+    {
+        // Chapters/SubChapters carry their own UpdatedAt and editing one doesn't
+        // bump the parent Book — so a chapter-only edit must still surface the
+        // book here, otherwise the client's delta sync would miss it.
+        var books = await db.Books
+            .Where(b => b.IsOfflineAvailable && (since == null
+                || b.UpdatedAt > since
+                || b.Chapters.Any(c => c.UpdatedAt > since)
+                || b.Chapters.Any(c => c.SubChapters.Any(s => s.UpdatedAt > since))))
+            .Include(b => b.Authors)
+            .Include(b => b.Categories)
+            .Include(b => b.Chapters).ThenInclude(c => c.SubChapters)
+            .AsSplitQuery()
+            .ToListAsync();
+        return books.Select(Mappers.ToBookDetail);
+    }
+
+    public async Task<List<Guid>> GetOfflineIdsAsync()
+        => await db.Books.Where(b => b.IsOfflineAvailable).Select(b => b.Id).ToListAsync();
+
     public async Task<BookListItem> CreateAsync(SaveBookRequest req)
     {
         var authors = await db.Authors.Where(a => req.AuthorIds.Contains(a.Id)).ToListAsync();
@@ -155,6 +178,23 @@ public class BookService(AppDbContext db) : IBookService
         book.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        if (book.IsOfflineAvailable) await syncNotifier.NotifyAsync("books");
+        return Mappers.ToBookListItem(book);
+    }
+
+    public async Task<BookListItem?> SetOfflineAvailabilityAsync(Guid id, bool isOfflineAvailable)
+    {
+        var book = await db.Books
+            .Include(b => b.Authors)
+            .Include(b => b.Categories)
+            .FirstOrDefaultAsync(b => b.Id == id);
+        if (book is null) return null;
+
+        book.IsOfflineAvailable = isOfflineAvailable;
+        book.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        await syncNotifier.NotifyAsync("books");
         return Mappers.ToBookListItem(book);
     }
 
@@ -162,8 +202,10 @@ public class BookService(AppDbContext db) : IBookService
     {
         var book = await db.Books.FindAsync(id);
         if (book is null) return false;
+        var wasOfflineAvailable = book.IsOfflineAvailable;
         db.Books.Remove(book);
         await db.SaveChangesAsync();
+        if (wasOfflineAvailable) await syncNotifier.NotifyAsync("books");
         return true;
     }
 }

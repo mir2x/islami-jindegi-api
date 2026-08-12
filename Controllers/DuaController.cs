@@ -14,8 +14,21 @@ public class DuaController(IDuaService service) : ControllerBase
         [FromQuery] int page = 1, [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null, [FromQuery] Guid? categoryId = null,
         [FromQuery] bool? published = null, [FromQuery] bool? hasAudio = null,
-        [FromQuery] string? sort = null)
-        => Ok(await service.GetListAsync(page, pageSize, search, categoryId, published, hasAudio, sort));
+        [FromQuery] bool? offlineAvailable = null, [FromQuery] string? sort = null)
+        => Ok(await service.GetListAsync(page, pageSize, search, categoryId, published, hasAudio, offlineAvailable, sort));
+
+    [HttpGet("offline-sync")]
+    public async Task<IActionResult> GetOfflineSync([FromQuery] DateTime? since)
+    {
+        var serverTime = DateTime.UtcNow;
+        var result = await service.GetOfflineSyncAsync(since);
+        Response.Headers["X-Sync-Server-Time"] = serverTime.ToString("O");
+        return Ok(result);
+    }
+
+    [HttpGet("offline-ids")]
+    public async Task<IActionResult> GetOfflineIds()
+        => Ok(await service.GetOfflineIdsAsync());
 
     [HttpGet("categories")]
     public async Task<IActionResult> GetCategories(
@@ -43,6 +56,14 @@ public class DuaController(IDuaService service) : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] SaveDuaRequest req)
     {
         var result = await service.UpdateAsync(id, req);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [Authorize]
+    [HttpPatch("{id:guid}/offline-availability")]
+    public async Task<IActionResult> SetOfflineAvailability(Guid id, [FromBody] SetOfflineAvailabilityRequest req)
+    {
+        var result = await service.SetOfflineAvailabilityAsync(id, req.IsOfflineAvailable);
         return result is null ? NotFound() : Ok(result);
     }
 

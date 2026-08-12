@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
 
-public class DuaService(AppDbContext db) : IDuaService
+public class DuaService(AppDbContext db, ContentSyncNotifier syncNotifier) : IDuaService
 {
-    public async Task<PagedResult<DuaListItem>> GetListAsync(int page, int pageSize, string? search, Guid? categoryId, bool? published, bool? hasAudio, string? sort)
+    public async Task<PagedResult<DuaListItem>> GetListAsync(int page, int pageSize, string? search, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort)
     {
         var query = db.Duas
             .Include(d => d.Categories)
@@ -23,6 +23,8 @@ public class DuaService(AppDbContext db) : IDuaService
             query = hasAudio.Value
                 ? query.Where(d => d.AudioUrl != null)
                 : query.Where(d => d.AudioUrl == null);
+        if (offlineAvailable.HasValue)
+            query = query.Where(d => d.IsOfflineAvailable == offlineAvailable.Value);
 
         query = sort switch
         {
@@ -76,6 +78,18 @@ public class DuaService(AppDbContext db) : IDuaService
         return item is null ? null : Mappers.ToDuaDetail(item);
     }
 
+    public async Task<IEnumerable<DuaDetail>> GetOfflineSyncAsync(DateTime? since)
+    {
+        var items = await db.Duas
+            .Where(d => d.IsOfflineAvailable && (since == null || d.UpdatedAt > since))
+            .Include(d => d.Categories)
+            .ToListAsync();
+        return items.Select(Mappers.ToDuaDetail);
+    }
+
+    public async Task<List<Guid>> GetOfflineIdsAsync()
+        => await db.Duas.Where(d => d.IsOfflineAvailable).Select(d => d.Id).ToListAsync();
+
     public async Task<DuaListItem> CreateAsync(SaveDuaRequest req)
     {
         var categories = await db.Categories.Where(c => req.CategoryIds.Contains(c.Id)).ToListAsync();
@@ -122,6 +136,22 @@ public class DuaService(AppDbContext db) : IDuaService
         item.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        if (item.IsOfflineAvailable) await syncNotifier.NotifyAsync("duas");
+        return Mappers.ToDuaListItem(item);
+    }
+
+    public async Task<DuaListItem?> SetOfflineAvailabilityAsync(Guid id, bool isOfflineAvailable)
+    {
+        var item = await db.Duas
+            .Include(d => d.Categories)
+            .FirstOrDefaultAsync(d => d.Id == id);
+        if (item is null) return null;
+
+        item.IsOfflineAvailable = isOfflineAvailable;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        await syncNotifier.NotifyAsync("duas");
         return Mappers.ToDuaListItem(item);
     }
 
@@ -129,8 +159,10 @@ public class DuaService(AppDbContext db) : IDuaService
     {
         var item = await db.Duas.FindAsync(id);
         if (item is null) return false;
+        var wasOfflineAvailable = item.IsOfflineAvailable;
         db.Duas.Remove(item);
         await db.SaveChangesAsync();
+        if (wasOfflineAvailable) await syncNotifier.NotifyAsync("duas");
         return true;
     }
 }

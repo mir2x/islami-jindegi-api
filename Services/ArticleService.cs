@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
 
-public class ArticleService(AppDbContext db) : IArticleService
+public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) : IArticleService
 {
-    public async Task<PagedResult<ArticleListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, string? sort)
+    public async Task<PagedResult<ArticleListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort)
     {
         var query = db.Articles
             .Include(a => a.Author)
@@ -22,6 +22,8 @@ public class ArticleService(AppDbContext db) : IArticleService
             query = query.Where(a => a.Categories.Any(c => c.Id == categoryId.Value));
         if (published.HasValue)
             query = query.Where(a => a.Published == published.Value);
+        if (offlineAvailable.HasValue)
+            query = query.Where(a => a.IsOfflineAvailable == offlineAvailable.Value);
 
         query = sort switch
         {
@@ -96,6 +98,19 @@ public class ArticleService(AppDbContext db) : IArticleService
         return item is null ? null : Mappers.ToArticleDetail(item);
     }
 
+    public async Task<IEnumerable<ArticleDetail>> GetOfflineSyncAsync(DateTime? since)
+    {
+        var items = await db.Articles
+            .Where(a => a.IsOfflineAvailable && (since == null || a.UpdatedAt > since))
+            .Include(a => a.Author)
+            .Include(a => a.Categories)
+            .ToListAsync();
+        return items.Select(Mappers.ToArticleDetail);
+    }
+
+    public async Task<List<Guid>> GetOfflineIdsAsync()
+        => await db.Articles.Where(a => a.IsOfflineAvailable).Select(a => a.Id).ToListAsync();
+
     public async Task<ArticleListItem> CreateAsync(SaveArticleRequest req)
     {
         var categories = await db.Categories.Where(c => req.CategoryIds.Contains(c.Id)).ToListAsync();
@@ -149,6 +164,23 @@ public class ArticleService(AppDbContext db) : IArticleService
         await db.SaveChangesAsync();
         if (item.AuthorId.HasValue)
             await db.Entry(item).Reference(a => a.Author).LoadAsync();
+        if (item.IsOfflineAvailable) await syncNotifier.NotifyAsync("articles");
+        return Mappers.ToArticleListItem(item);
+    }
+
+    public async Task<ArticleListItem?> SetOfflineAvailabilityAsync(Guid id, bool isOfflineAvailable)
+    {
+        var item = await db.Articles
+            .Include(a => a.Author)
+            .Include(a => a.Categories)
+            .FirstOrDefaultAsync(a => a.Id == id);
+        if (item is null) return null;
+
+        item.IsOfflineAvailable = isOfflineAvailable;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        await syncNotifier.NotifyAsync("articles");
         return Mappers.ToArticleListItem(item);
     }
 
@@ -156,8 +188,10 @@ public class ArticleService(AppDbContext db) : IArticleService
     {
         var item = await db.Articles.FindAsync(id);
         if (item is null) return false;
+        var wasOfflineAvailable = item.IsOfflineAvailable;
         db.Articles.Remove(item);
         await db.SaveChangesAsync();
+        if (wasOfflineAvailable) await syncNotifier.NotifyAsync("articles");
         return true;
     }
 }

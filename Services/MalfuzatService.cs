@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
 
-public class MalfuzatService(AppDbContext db) : IMalfuzatService
+public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) : IMalfuzatService
 {
-    public async Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, string? sort)
+    public async Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort)
     {
         var query = db.Malfuzats
             .Include(m => m.Author)
@@ -24,6 +24,8 @@ public class MalfuzatService(AppDbContext db) : IMalfuzatService
             query = query.Where(m => m.Published == published.Value);
         if (hasAudio.HasValue)
             query = query.Where(m => m.HasAudio == hasAudio.Value);
+        if (offlineAvailable.HasValue)
+            query = query.Where(m => m.IsOfflineAvailable == offlineAvailable.Value);
 
         query = sort switch
         {
@@ -100,6 +102,19 @@ public class MalfuzatService(AppDbContext db) : IMalfuzatService
         return item is null ? null : Mappers.ToMalfuzatDetail(item);
     }
 
+    public async Task<IEnumerable<MalfuzatDetail>> GetOfflineSyncAsync(DateTime? since)
+    {
+        var items = await db.Malfuzats
+            .Where(m => m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
+            .Include(m => m.Author)
+            .Include(m => m.Categories)
+            .ToListAsync();
+        return items.Select(Mappers.ToMalfuzatDetail);
+    }
+
+    public async Task<List<Guid>> GetOfflineIdsAsync()
+        => await db.Malfuzats.Where(m => m.IsOfflineAvailable).Select(m => m.Id).ToListAsync();
+
     public async Task<(MalfuzatListItem? Item, string? Error)> CreateAsync(SaveMalfuzatRequest req)
     {
         var author = await db.Authors.FindAsync(req.AuthorId);
@@ -158,6 +173,23 @@ public class MalfuzatService(AppDbContext db) : IMalfuzatService
 
         await db.SaveChangesAsync();
         await db.Entry(item).Reference(m => m.Author).LoadAsync();
+        if (item.IsOfflineAvailable) await syncNotifier.NotifyAsync("malfuzats");
+        return Mappers.ToMalfuzatListItem(item);
+    }
+
+    public async Task<MalfuzatListItem?> SetOfflineAvailabilityAsync(Guid id, bool isOfflineAvailable)
+    {
+        var item = await db.Malfuzats
+            .Include(m => m.Author)
+            .Include(m => m.Categories)
+            .FirstOrDefaultAsync(m => m.Id == id);
+        if (item is null) return null;
+
+        item.IsOfflineAvailable = isOfflineAvailable;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        await syncNotifier.NotifyAsync("malfuzats");
         return Mappers.ToMalfuzatListItem(item);
     }
 
@@ -165,8 +197,10 @@ public class MalfuzatService(AppDbContext db) : IMalfuzatService
     {
         var item = await db.Malfuzats.FindAsync(id);
         if (item is null) return false;
+        var wasOfflineAvailable = item.IsOfflineAvailable;
         db.Malfuzats.Remove(item);
         await db.SaveChangesAsync();
+        if (wasOfflineAvailable) await syncNotifier.NotifyAsync("malfuzats");
         return true;
     }
 }

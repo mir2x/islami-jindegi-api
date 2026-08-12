@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
 
-public class MasailService(AppDbContext db) : IMasailService
+public class MasailService(AppDbContext db, ContentSyncNotifier syncNotifier) : IMasailService
 {
-    public async Task<PagedResult<MasailListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, string? sort)
+    public async Task<PagedResult<MasailListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort)
     {
         var query = db.Masails
             .Include(m => m.Author)
@@ -24,6 +24,8 @@ public class MasailService(AppDbContext db) : IMasailService
             query = query.Where(m => m.Published == published.Value);
         if (hasAudio.HasValue)
             query = query.Where(m => m.HasAudio == hasAudio.Value);
+        if (offlineAvailable.HasValue)
+            query = query.Where(m => m.IsOfflineAvailable == offlineAvailable.Value);
 
         query = sort switch
         {
@@ -100,6 +102,19 @@ public class MasailService(AppDbContext db) : IMasailService
         return item is null ? null : Mappers.ToMasailDetail(item);
     }
 
+    public async Task<IEnumerable<MasailDetail>> GetOfflineSyncAsync(DateTime? since)
+    {
+        var items = await db.Masails
+            .Where(m => m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
+            .Include(m => m.Author)
+            .Include(m => m.Categories)
+            .ToListAsync();
+        return items.Select(Mappers.ToMasailDetail);
+    }
+
+    public async Task<List<Guid>> GetOfflineIdsAsync()
+        => await db.Masails.Where(m => m.IsOfflineAvailable).Select(m => m.Id).ToListAsync();
+
     public async Task<MasailListItem> CreateAsync(SaveMasailRequest req)
     {
         var categories = await db.Categories.Where(c => req.CategoryIds.Contains(c.Id)).ToListAsync();
@@ -157,6 +172,23 @@ public class MasailService(AppDbContext db) : IMasailService
         await db.SaveChangesAsync();
         if (item.AuthorId.HasValue)
             await db.Entry(item).Reference(m => m.Author).LoadAsync();
+        if (item.IsOfflineAvailable) await syncNotifier.NotifyAsync("masails");
+        return Mappers.ToMasailListItem(item);
+    }
+
+    public async Task<MasailListItem?> SetOfflineAvailabilityAsync(Guid id, bool isOfflineAvailable)
+    {
+        var item = await db.Masails
+            .Include(m => m.Author)
+            .Include(m => m.Categories)
+            .FirstOrDefaultAsync(m => m.Id == id);
+        if (item is null) return null;
+
+        item.IsOfflineAvailable = isOfflineAvailable;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        await syncNotifier.NotifyAsync("masails");
         return Mappers.ToMasailListItem(item);
     }
 
@@ -164,8 +196,10 @@ public class MasailService(AppDbContext db) : IMasailService
     {
         var item = await db.Masails.FindAsync(id);
         if (item is null) return false;
+        var wasOfflineAvailable = item.IsOfflineAvailable;
         db.Masails.Remove(item);
         await db.SaveChangesAsync();
+        if (wasOfflineAvailable) await syncNotifier.NotifyAsync("masails");
         return true;
     }
 }

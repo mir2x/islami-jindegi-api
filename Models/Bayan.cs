@@ -9,6 +9,7 @@ public class Bayan
     public string? Location { get; set; }
     public string? AudioUrl { get; set; }
     public bool Published { get; set; } = true;
+    public bool IsOfflineAvailable { get; set; } = false;
     public DateTime PublishedAt { get; set; }
     public int Position { get; set; }
     public DateTime CreatedAt { get; set; }

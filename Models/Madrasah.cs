@@ -7,6 +7,7 @@ public class Madrasah
     public string? Excerpt { get; set; }
     public string Introduction { get; set; } = string.Empty;
     public int Position { get; set; }
+    public bool IsOfflineAvailable { get; set; } = false;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

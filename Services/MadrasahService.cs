@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
 
-public class MadrasahService(AppDbContext db) : IMadrasahService
+public class MadrasahService(AppDbContext db, ContentSyncNotifier syncNotifier) : IMadrasahService
 {
-    public async Task<PagedResult<MadrasahListItem>> GetListAsync(int page, int pageSize, string? search)
+    public async Task<PagedResult<MadrasahListItem>> GetListAsync(int page, int pageSize, string? search, bool? offlineAvailable = null)
     {
         var query = db.Madrasahs
             .Include(m => m.Infos)
@@ -16,6 +16,8 @@ public class MadrasahService(AppDbContext db) : IMadrasahService
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(m => m.Title.Contains(search));
+        if (offlineAvailable.HasValue)
+            query = query.Where(m => m.IsOfflineAvailable == offlineAvailable.Value);
 
         var total = await query.CountAsync();
         var data = await query
@@ -25,7 +27,7 @@ public class MadrasahService(AppDbContext db) : IMadrasahService
             .ToListAsync();
 
         return new PagedResult<MadrasahListItem>(
-            data.Select(m => new MadrasahListItem(m.Id, m.Title, m.Excerpt, m.Position, m.Infos.Count, m.Photos.Count, m.CreatedAt, m.UpdatedAt)),
+            data.Select(m => new MadrasahListItem(m.Id, m.Title, m.Excerpt, m.Position, m.Infos.Count, m.Photos.Count, m.IsOfflineAvailable, m.CreatedAt, m.UpdatedAt)),
             total, page, pageSize);
     }
 
@@ -37,6 +39,23 @@ public class MadrasahService(AppDbContext db) : IMadrasahService
             .FirstOrDefaultAsync(m => m.Id == id);
         return item is null ? null : Mappers.ToMadrasahDetail(item);
     }
+
+    public async Task<IEnumerable<MadrasahDetail>> GetOfflineSyncAsync(DateTime? since)
+    {
+        // Infos/Photos have no independent CRUD endpoint of their own — they're
+        // only ever edited via UpdateAsync below, which always stamps the parent
+        // too, so filtering on the parent's UpdatedAt alone is sufficient here
+        // (unlike Books, where Chapters have their own controller/endpoints).
+        var items = await db.Madrasahs
+            .Where(m => m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
+            .Include(m => m.Infos.OrderBy(i => i.Position))
+            .Include(m => m.Photos.OrderBy(p => p.Position))
+            .ToListAsync();
+        return items.Select(Mappers.ToMadrasahDetail);
+    }
+
+    public async Task<List<Guid>> GetOfflineIdsAsync()
+        => await db.Madrasahs.Where(m => m.IsOfflineAvailable).Select(m => m.Id).ToListAsync();
 
     public async Task<MadrasahDetail> CreateAsync(SaveMadrasahRequest req)
     {
@@ -82,15 +101,34 @@ public class MadrasahService(AppDbContext db) : IMadrasahService
         item.Photos = req.Photos.Select(p => new MadrasahPhoto { Id = Guid.NewGuid(), Title = p.Title, ImageUrl = p.ImageUrl, Position = p.Position, MadrasahId = item.Id, CreatedAt = now, UpdatedAt = now }).ToList();
 
         await db.SaveChangesAsync();
+        if (item.IsOfflineAvailable) await syncNotifier.NotifyAsync("madrasahs");
         return Mappers.ToMadrasahDetail(item);
+    }
+
+    public async Task<MadrasahListItem?> SetOfflineAvailabilityAsync(Guid id, bool isOfflineAvailable)
+    {
+        var item = await db.Madrasahs
+            .Include(m => m.Infos)
+            .Include(m => m.Photos)
+            .FirstOrDefaultAsync(m => m.Id == id);
+        if (item is null) return null;
+
+        item.IsOfflineAvailable = isOfflineAvailable;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        await syncNotifier.NotifyAsync("madrasahs");
+        return new MadrasahListItem(item.Id, item.Title, item.Excerpt, item.Position, item.Infos.Count, item.Photos.Count, item.IsOfflineAvailable, item.CreatedAt, item.UpdatedAt);
     }
 
     public async Task<bool> DeleteAsync(Guid id)
     {
         var item = await db.Madrasahs.FindAsync(id);
         if (item is null) return false;
+        var wasOfflineAvailable = item.IsOfflineAvailable;
         db.Madrasahs.Remove(item);
         await db.SaveChangesAsync();
+        if (wasOfflineAvailable) await syncNotifier.NotifyAsync("madrasahs");
         return true;
     }
 }

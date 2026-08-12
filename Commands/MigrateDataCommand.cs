@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Text.Json;
 using IslamiJindegiApi.Data;
 using IslamiJindegiApi.Models;
@@ -10,30 +11,47 @@ public static class MigrateDataCommand
 {
     const string TigrisBase = "https://static.islamijindegi.com/uploads/store/";
 
-    public static async Task RunAsync(string oldConnStr, AppDbContext newDb)
+    // Step names for --from=<step> resume support, in execution order.
+    static readonly List<string> StepOrder =
+    [
+        "authors", "categories", "books", "bookauthors", "bookcategories",
+        "chapters", "subchapters", "cleanup",
+        "malfuzat", "masail", "dua", "bayan", "article",
+        "news", "madrasah", "namaz"
+    ];
+
+    public static async Task RunAsync(string oldConnStr, AppDbContext newDb, string? from = null)
     {
         await using var old = await OpenReadOnly(oldConnStr);
-        Console.WriteLine("Connected to old DB (read-only). Starting full migration...\n");
 
-        await MigrateAuthors(old, newDb);
-        await MigrateCategories(old, newDb);
-        await MigrateBooks(old, newDb);
-        await MigrateBookAuthors(old, newDb);
-        await MigrateBookCategories(old, newDb);
-        await MigrateChapters(old, newDb);
-        await MigrateSubChapters(old, newDb);
+        if (from is not null && !StepOrder.Contains(from))
+            throw new ArgumentException($"Unknown --from step '{from}'. Valid steps: {string.Join(", ", StepOrder)}");
 
-        await CleanupDuplicateAuthors(newDb);
+        Console.WriteLine(from is null
+            ? "Connected to old DB (read-only). Starting full migration...\n"
+            : $"Connected to old DB (read-only). Resuming migration from '{from}'...\n");
 
-        await MigrateMalfuzat(old, newDb);
-        await MigrateMasail(old, newDb);
-        await MigrateDua(old, newDb);
-        await MigrateBayan(old, newDb);
-        await MigrateArticle(old, newDb);
+        bool Run(string step) => from is null || StepOrder.IndexOf(from) <= StepOrder.IndexOf(step);
 
-        await MigrateNews(old, newDb);
-        await MigrateMadrasah(old, newDb);
-        await MigrateNamazTimes(old, newDb);
+        if (Run("authors")) await MigrateAuthors(old, newDb);
+        if (Run("categories")) await MigrateCategories(old, newDb);
+        if (Run("books")) await MigrateBooks(old, newDb);
+        if (Run("bookauthors")) await MigrateBookAuthors(old, newDb);
+        if (Run("bookcategories")) await MigrateBookCategories(old, newDb);
+        if (Run("chapters")) await MigrateChapters(old, newDb);
+        if (Run("subchapters")) await MigrateSubChapters(old, newDb);
+
+        if (Run("cleanup")) await CleanupDuplicateAuthors(newDb);
+
+        if (Run("malfuzat")) await MigrateMalfuzat(old, newDb);
+        if (Run("masail")) await MigrateMasail(old, newDb);
+        if (Run("dua")) await MigrateDua(old, newDb);
+        if (Run("bayan")) await MigrateBayan(old, newDb);
+        if (Run("article")) await MigrateArticle(old, newDb);
+
+        if (Run("news")) await MigrateNews(old, newDb);
+        if (Run("madrasah")) await MigrateMadrasah(old, newDb);
+        if (Run("namaz")) await MigrateNamazTimes(old, newDb);
 
         Console.WriteLine("\nMigration complete.");
     }
@@ -1158,20 +1176,45 @@ public static class MigrateDataCommand
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    const int MaxTransientRetries = 5;
+
     static async Task<List<object?[]>> Query(NpgsqlConnection conn, string sql)
     {
-        await using var cmd = new NpgsqlCommand(sql, conn);
-        await using var reader = await cmd.ExecuteReaderAsync();
-        var result = new List<object?[]>();
-        while (await reader.ReadAsync())
+        for (int attempt = 1; ; attempt++)
         {
-            var row = new object?[reader.FieldCount];
-            reader.GetValues(row!);
-            for (int i = 0; i < row.Length; i++)
-                if (row[i] is DBNull) row[i] = null;
-            result.Add(row);
+            try
+            {
+                await using var cmd = new NpgsqlCommand(sql, conn);
+                await using var reader = await cmd.ExecuteReaderAsync();
+                var result = new List<object?[]>();
+                while (await reader.ReadAsync())
+                {
+                    var row = new object?[reader.FieldCount];
+                    reader.GetValues(row!);
+                    for (int i = 0; i < row.Length; i++)
+                        if (row[i] is DBNull) row[i] = null;
+                    result.Add(row);
+                }
+                return result;
+            }
+            catch (Exception ex) when (attempt < MaxTransientRetries && IsTransientConnectionError(ex))
+            {
+                Console.WriteLine($"\n  [old-db connection dropped, reconnecting {attempt}/{MaxTransientRetries - 1}...]");
+                await Task.Delay(TimeSpan.FromSeconds(2 * attempt));
+                await ReopenReadOnly(conn);
+            }
         }
-        return result;
+    }
+
+    static bool IsTransientConnectionError(Exception ex) =>
+        ex is NpgsqlException or IOException or SocketException
+        || ex.InnerException is IOException or SocketException;
+
+    static async Task ReopenReadOnly(NpgsqlConnection conn)
+    {
+        try { await conn.CloseAsync(); } catch { /* already broken, ignore */ }
+        await conn.OpenAsync();
+        await Exec(conn, "SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY");
     }
 
     static async Task Exec(NpgsqlConnection conn, string sql)

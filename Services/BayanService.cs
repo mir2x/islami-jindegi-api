@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
 
-public class BayanService(AppDbContext db) : IBayanService
+public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : IBayanService
 {
-    public async Task<PagedResult<BayanListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, string? sort)
+    public async Task<PagedResult<BayanListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort)
     {
         var query = db.Bayans
             .Include(b => b.Author)
@@ -22,6 +22,8 @@ public class BayanService(AppDbContext db) : IBayanService
             query = query.Where(b => b.Categories.Any(c => c.Id == categoryId.Value));
         if (published.HasValue)
             query = query.Where(b => b.Published == published.Value);
+        if (offlineAvailable.HasValue)
+            query = query.Where(b => b.IsOfflineAvailable == offlineAvailable.Value);
 
         query = sort switch
         {
@@ -102,6 +104,19 @@ public class BayanService(AppDbContext db) : IBayanService
         return item is null ? null : Mappers.ToBayanDetail(item);
     }
 
+    public async Task<IEnumerable<BayanDetail>> GetOfflineSyncAsync(DateTime? since)
+    {
+        var items = await db.Bayans
+            .Where(b => b.IsOfflineAvailable && (since == null || b.UpdatedAt > since))
+            .Include(b => b.Author)
+            .Include(b => b.Categories)
+            .ToListAsync();
+        return items.Select(Mappers.ToBayanDetail);
+    }
+
+    public async Task<List<Guid>> GetOfflineIdsAsync()
+        => await db.Bayans.Where(b => b.IsOfflineAvailable).Select(b => b.Id).ToListAsync();
+
     public async Task<(BayanListItem? Item, string? Error)> CreateAsync(SaveBayanRequest req)
     {
         var author = await db.Authors.FindAsync(req.AuthorId);
@@ -156,6 +171,23 @@ public class BayanService(AppDbContext db) : IBayanService
 
         await db.SaveChangesAsync();
         await db.Entry(item).Reference(b => b.Author).LoadAsync();
+        if (item.IsOfflineAvailable) await syncNotifier.NotifyAsync("bayans");
+        return Mappers.ToBayanListItem(item);
+    }
+
+    public async Task<BayanListItem?> SetOfflineAvailabilityAsync(Guid id, bool isOfflineAvailable)
+    {
+        var item = await db.Bayans
+            .Include(b => b.Author)
+            .Include(b => b.Categories)
+            .FirstOrDefaultAsync(b => b.Id == id);
+        if (item is null) return null;
+
+        item.IsOfflineAvailable = isOfflineAvailable;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        await syncNotifier.NotifyAsync("bayans");
         return Mappers.ToBayanListItem(item);
     }
 
@@ -163,8 +195,10 @@ public class BayanService(AppDbContext db) : IBayanService
     {
         var item = await db.Bayans.FindAsync(id);
         if (item is null) return false;
+        var wasOfflineAvailable = item.IsOfflineAvailable;
         db.Bayans.Remove(item);
         await db.SaveChangesAsync();
+        if (wasOfflineAvailable) await syncNotifier.NotifyAsync("bayans");
         return true;
     }
 }

@@ -14,8 +14,21 @@ public class BayanController(IBayanService service) : ControllerBase
         [FromQuery] int page = 1, [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null, [FromQuery] Guid? authorId = null,
         [FromQuery] Guid? categoryId = null, [FromQuery] bool? published = null,
-        [FromQuery] string? sort = null)
-        => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, sort));
+        [FromQuery] bool? offlineAvailable = null, [FromQuery] string? sort = null)
+        => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, offlineAvailable, sort));
+
+    [HttpGet("offline-sync")]
+    public async Task<IActionResult> GetOfflineSync([FromQuery] DateTime? since)
+    {
+        var serverTime = DateTime.UtcNow;
+        var result = await service.GetOfflineSyncAsync(since);
+        Response.Headers["X-Sync-Server-Time"] = serverTime.ToString("O");
+        return Ok(result);
+    }
+
+    [HttpGet("offline-ids")]
+    public async Task<IActionResult> GetOfflineIds()
+        => Ok(await service.GetOfflineIdsAsync());
 
     [HttpGet("authors")]
     public async Task<IActionResult> GetAuthors(
@@ -50,6 +63,14 @@ public class BayanController(IBayanService service) : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] SaveBayanRequest req)
     {
         var result = await service.UpdateAsync(id, req);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [Authorize]
+    [HttpPatch("{id:guid}/offline-availability")]
+    public async Task<IActionResult> SetOfflineAvailability(Guid id, [FromBody] SetOfflineAvailabilityRequest req)
+    {
+        var result = await service.SetOfflineAvailabilityAsync(id, req.IsOfflineAvailable);
         return result is null ? NotFound() : Ok(result);
     }
 

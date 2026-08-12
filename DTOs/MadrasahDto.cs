@@ -19,6 +19,7 @@ public record MadrasahListItem(
     int Position,
     int InfoCount,
     int PhotoCount,
+    bool IsOfflineAvailable,
     DateTime CreatedAt,
     DateTime UpdatedAt);
 
@@ -30,6 +31,7 @@ public record MadrasahDetail(
     int Position,
     List<MadrasahInfoItem> Infos,
     List<MadrasahPhotoItem> Photos,
+    bool IsOfflineAvailable,
     DateTime CreatedAt,
     DateTime UpdatedAt);
 

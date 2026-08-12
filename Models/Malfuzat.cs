@@ -11,6 +11,7 @@ public class Malfuzat
     public string? DocumentUrl { get; set; }
     public bool HasAudio { get; set; }
     public bool Published { get; set; } = true;
+    public bool IsOfflineAvailable { get; set; } = false;
     public DateTime? PublishedAt { get; set; }
     public int? Position { get; set; }
     public DateTime CreatedAt { get; set; }

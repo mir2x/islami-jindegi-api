@@ -30,6 +30,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure()));
 
 builder.Services.AddSingleton<StorageService>();
+builder.Services.AddSingleton<ContentSyncNotifier>();
 
 builder.Services.AddScoped<IAuthorService, AuthorService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
@@ -102,7 +103,10 @@ using (var scope = app.Services.CreateScope())
         else if (args.Contains("--migrate-pages"))
             await MigrateDataCommand.RunPagesAsync(oldConnStr, db);
         else
-            await MigrateDataCommand.RunAsync(oldConnStr, db);
+        {
+            var fromStep = args.FirstOrDefault(a => a.StartsWith("--from="))?["--from=".Length..];
+            await MigrateDataCommand.RunAsync(oldConnStr, db, fromStep);
+        }
 
         return;
     }
@@ -126,6 +130,25 @@ using (var scope = app.Services.CreateScope())
         var jsonPath = Environment.GetEnvironmentVariable("ARABIC_PLAIN_JSON_PATH")
             ?? throw new InvalidOperationException("ARABIC_PLAIN_JSON_PATH not set.");
         await ImportArabicPlainTextCommand.RunAsync(db, jsonPath);
+        return;
+    }
+
+    if (args.Contains("--backfill-offline-availability"))
+    {
+        var dataDir = Environment.GetEnvironmentVariable("OFFLINE_DATA_DIR") ?? "offline_data";
+        await BackfillOfflineAvailabilityCommand.RunAsync(db, dataDir);
+        return;
+    }
+
+    if (args.Contains("--reset-books-offline-availability"))
+    {
+        await ResetBooksOfflineAvailabilityCommand.RunAsync(db);
+        return;
+    }
+
+    if (args.Contains("--set-offline-availability-defaults"))
+    {
+        await SetOfflineAvailabilityDefaultsCommand.RunAsync(db);
         return;
     }
 }

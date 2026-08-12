@@ -13,6 +13,7 @@ public class Book
     public int Position { get; set; }
     public DateTime? PublishedAt { get; set; }
     public bool Published { get; set; } = true;
+    public bool IsOfflineAvailable { get; set; } = false;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
