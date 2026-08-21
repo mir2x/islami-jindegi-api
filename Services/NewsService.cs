@@ -9,7 +9,7 @@ public class NewsService(AppDbContext db) : INewsService
 {
     public async Task<PagedResult<NewsListItem>> GetListAsync(int page, int pageSize, string? search, bool? published, string? sort)
     {
-        var query = db.News.AsQueryable();
+        var query = db.News.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(n => n.Title.Contains(search));
         if (published.HasValue)

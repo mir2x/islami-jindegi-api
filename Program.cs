@@ -10,6 +10,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
+builder.Services.AddResponseCompression();
+builder.Services.AddOutputCache(options =>
+{
+    // The offline-sync responses are whole-corpus payloads, well past the 64MB
+    // per-body / 100MB total defaults once several domains are cached at once.
+    options.MaximumBodySize = 128L * 1024 * 1024;
+    options.SizeLimit = 512L * 1024 * 1024;
+});
 
 var connectionString = BuildConnectionString(
     Environment.GetEnvironmentVariable("DATABASE_URL"),
@@ -21,13 +30,28 @@ static string BuildConnectionString(string? databaseUrl, string? fallback)
     {
         var uri = new Uri(databaseUrl.Split('?')[0].Replace("postgres://", "http://"));
         var userInfo = uri.UserInfo.Split(':');
-        return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Disable;Gss Encryption Mode=Disable";
+        // Pool and timeout settings live here, not in DATABASE_URL: the query
+        // string is stripped above, so anything appended to the secret is lost.
+        // A 100-connection default (Npgsql's) lets a single instance queue far
+        // more concurrent work than the database can serve, which turns a slow
+        // query into thread-pool starvation and takes the whole API down.
+        return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};"
+             + $"Username={userInfo[0]};Password={userInfo[1]};"
+             + "SSL Mode=Disable;Gss Encryption Mode=Disable;"
+             + "Maximum Pool Size=20;Timeout=5;Command Timeout=30";
     }
     return fallback ?? throw new InvalidOperationException("No database connection string configured.");
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure()));
+    // The parameterless overload retries 6 times with delays up to 30s, so a
+    // single unreachable database holds every pooled connection for minutes
+    // and starves Kestrel. Fail fast instead and let the client retry.
+    options.UseNpgsql(connectionString, npgsql =>
+        npgsql.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null)));
 
 builder.Services.AddSingleton<StorageService>();
 builder.Services.AddSingleton<ContentSyncNotifier>();
@@ -82,10 +106,19 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 app.UseCors();
+app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseOutputCache();
+app.UseMiddleware<ResponseCacheInvalidationMiddleware>();
 app.MapControllers();
+
+// Liveness only — deliberately does not touch the database. Fly restarts the
+// machine when this stops answering, which is the recovery path for a process
+// wedged by thread-pool starvation or GC pressure. A DB-backed check would
+// keep the machine getting killed during a database incident instead.
+app.MapGet("/health", () => Results.Ok("ok")).AllowAnonymous();
 
 using (var scope = app.Services.CreateScope())
 {

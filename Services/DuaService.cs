@@ -10,6 +10,7 @@ public class DuaService(AppDbContext db, ContentSyncNotifier syncNotifier) : IDu
     public async Task<PagedResult<DuaListItem>> GetListAsync(int page, int pageSize, string? search, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort)
     {
         var query = db.Duas
+            .AsNoTracking()
             .Include(d => d.Categories)
             .AsQueryable();
 
@@ -73,6 +74,7 @@ public class DuaService(AppDbContext db, ContentSyncNotifier syncNotifier) : IDu
     public async Task<DuaDetail?> GetByIdAsync(Guid id)
     {
         var item = await db.Duas
+            .AsNoTracking()
             .Include(d => d.Categories)
             .FirstOrDefaultAsync(d => d.Id == id);
         return item is null ? null : Mappers.ToDuaDetail(item);
@@ -81,6 +83,7 @@ public class DuaService(AppDbContext db, ContentSyncNotifier syncNotifier) : IDu
     public async Task<IEnumerable<DuaDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Duas
+            .AsNoTracking()
             .Where(d => d.IsOfflineAvailable && (since == null || d.UpdatedAt > since))
             .Include(d => d.Categories)
             .ToListAsync();

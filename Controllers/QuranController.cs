@@ -1,4 +1,5 @@
 using IslamiJindegiApi.Services;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IslamiJindegiApi.Controllers;
@@ -13,6 +14,7 @@ public record SuraAudioUrlsReq(string ReciterId, int Sura);
 public class QuranController(IQuranService service) : ControllerBase
 {
     [HttpGet("surahs")]
+    [OutputCache(Duration = 3600, Tags = ["quran"])]
     public IActionResult GetSurahs()
         => Ok(service.GetSurahs());
 
@@ -20,6 +22,7 @@ public class QuranController(IQuranService service) : ControllerBase
     // "all" = everything, or a comma-separated allow-list (translator names / tafsir ids).
     // `translator`/`tafsir` are kept as single-value aliases for backwards compatibility.
     [HttpGet("surahs/{number:int}/ayahs")]
+    [OutputCache(Duration = 3600, Tags = ["quran"])]
     public async Task<IActionResult> GetSurahAyahs(
         int number,
         [FromQuery] string? translator, [FromQuery] string? translations,
@@ -31,6 +34,7 @@ public class QuranController(IQuranService service) : ControllerBase
     }
 
     [HttpGet("surahs/{number:int}/ayahs/{ayahNumber:int}")]
+    [OutputCache(Duration = 3600, Tags = ["quran"])]
     public async Task<IActionResult> GetSurahAyah(
         int number, int ayahNumber,
         [FromQuery] string? translator, [FromQuery] string? translations,
@@ -54,22 +58,27 @@ public class QuranController(IQuranService service) : ControllerBase
     }
 
     [HttpGet("translators")]
+    [OutputCache(Duration = 3600, Tags = ["quran"])]
     public async Task<IActionResult> GetTranslators()
         => Ok(await service.GetTranslatorsAsync());
 
     [HttpGet("tafsirs")]
+    [OutputCache(Duration = 3600, Tags = ["quran"])]
     public IActionResult GetTafsirs()
         => Ok(service.GetTafsirs());
 
     [HttpGet("reciters")]
+    [OutputCache(Duration = 3600, Tags = ["quran"])]
     public IActionResult GetReciters()
         => Ok(service.GetReciters());
 
     [HttpGet("mushafs")]
+    [OutputCache(Duration = 3600, Tags = ["quran"])]
     public IActionResult GetMushafs()
         => Ok(service.GetMushafs());
 
     [HttpGet("mushafs/{editionId}")]
+    [OutputCache(Duration = 3600, Tags = ["quran"])]
     public IActionResult GetMushaf(string editionId)
     {
         var edition = service.GetMushaf(editionId);

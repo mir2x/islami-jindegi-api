@@ -2,6 +2,7 @@ using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace IslamiJindegiApi.Controllers;
 
@@ -11,17 +12,20 @@ public class CategoriesController(ICategoryService service) : ControllerBase
 {
     // Unpaged full tree — the filter dropdowns across the admin depend on this shape.
     [HttpGet]
+    [OutputCache(Duration = 900, Tags = ["categories"])]
     public async Task<IActionResult> GetAll()
         => Ok(await service.GetAllAsync());
 
     // Paged top-level categories for the admin list screen.
     [HttpGet("paged")]
+    [OutputCache(Duration = 300, Tags = ["categories"])]
     public async Task<IActionResult> GetPaged(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null, [FromQuery] string? sort = null)
         => Ok(await service.GetPagedAsync(page, pageSize, search, sort));
 
     [HttpGet("{id:guid}")]
+    [OutputCache(Duration = 300, Tags = ["categories"])]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await service.GetByIdAsync(id);

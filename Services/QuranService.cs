@@ -3,6 +3,7 @@ using IslamiJindegiApi.Data;
 using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace IslamiJindegiApi.Services;
 
@@ -15,7 +16,7 @@ public record MushafEditionConfig(
     string Id, string Title, int Width, int Height,
     string Ext, int TotalPages, string PagesBaseUrl, string AyahBoxesUrl);
 
-public class QuranService(AppDbContext db, StorageService storage) : IQuranService
+public class QuranService(AppDbContext db, StorageService storage, IMemoryCache cache) : IQuranService
 {
     const string CdnBase = "https://static.islamijindegi.com";
 
@@ -254,9 +255,20 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
             .ToList();
 
         var urls = keys.Select(k => storage.GetPresignedUrl(k, 300)).ToList();
-        var sizes = await Task.WhenAll(keys.Select(k => storage.GetFileSizeAsync(k)));
+        var cacheKey = $"quran-audio-size:{reciterId}:{sura}";
+        var totalBytes = await cache.GetOrCreateAsync<long>(cacheKey, async entry =>
+        {
+            // Audio files are immutable once published. Cache the aggregate so
+            // repeat visits don't make one storage metadata request per ayah.
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12);
 
-        var totalBytes = sizes.Sum();
+            // Al-Baqarah has 286 ayahs; bound concurrent S3 calls per request.
+            var sizes = new long[keys.Count];
+            await Parallel.ForEachAsync(Enumerable.Range(0, keys.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = 12 },
+                async (index, _) => sizes[index] = await storage.GetFileSizeAsync(keys[index]));
+            return sizes.Sum();
+        });
         return new
         {
             urls,
@@ -299,18 +311,19 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
         if (surah is null) return null;
 
         var ayahs = await db.QuranAyahs
+            .AsNoTracking()
             .Where(a => a.SurahNumber == surahNumber)
             .OrderBy(a => a.AyahNumber)
             .ToListAsync();
 
-        var translationRows = await FilterTranslations(db.QuranTranslations.Where(t => t.SurahNumber == surahNumber), translations)
+        var translationRows = await FilterTranslations(db.QuranTranslations.AsNoTracking().Where(t => t.SurahNumber == surahNumber), translations)
             .ToListAsync();
 
         var wordRows = words
-            ? await db.QuranWords.Where(w => w.SurahNumber == surahNumber).OrderBy(w => w.AyahNumber).ThenBy(w => w.WordId).ToListAsync()
+            ? await db.QuranWords.AsNoTracking().Where(w => w.SurahNumber == surahNumber).OrderBy(w => w.AyahNumber).ThenBy(w => w.WordId).ToListAsync()
             : [];
 
-        var tafsirRows = await FilterTafsirs(db.QuranTafsirs.Where(t => t.SurahNumber == surahNumber), tafsirs)
+        var tafsirRows = await FilterTafsirs(db.QuranTafsirs.AsNoTracking().Where(t => t.SurahNumber == surahNumber), tafsirs)
             .ToListAsync();
 
         var translationsByAyah = translationRows.GroupBy(t => t.AyahNumber).ToDictionary(g => g.Key, g => g.ToList());
@@ -347,18 +360,18 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
         var surah = SurahList.FirstOrDefault(s => s.Number == surahNumber);
         if (surah is null || ayahNumber < 1 || ayahNumber > surah.TotalAyahs) return null;
 
-        var ayah = await db.QuranAyahs.FirstOrDefaultAsync(a => a.SurahNumber == surahNumber && a.AyahNumber == ayahNumber);
+        var ayah = await db.QuranAyahs.AsNoTracking().FirstOrDefaultAsync(a => a.SurahNumber == surahNumber && a.AyahNumber == ayahNumber);
         if (ayah is null) return null;
 
         var translationRows = await FilterTranslations(
-            db.QuranTranslations.Where(t => t.SurahNumber == surahNumber && t.AyahNumber == ayahNumber), translations).ToListAsync();
+            db.QuranTranslations.AsNoTracking().Where(t => t.SurahNumber == surahNumber && t.AyahNumber == ayahNumber), translations).ToListAsync();
 
         var wordRows = words
-            ? await db.QuranWords.Where(w => w.SurahNumber == surahNumber && w.AyahNumber == ayahNumber).OrderBy(w => w.WordId).ToListAsync()
+            ? await db.QuranWords.AsNoTracking().Where(w => w.SurahNumber == surahNumber && w.AyahNumber == ayahNumber).OrderBy(w => w.WordId).ToListAsync()
             : [];
 
         var tafsirRows = await FilterTafsirs(
-            db.QuranTafsirs.Where(t => t.SurahNumber == surahNumber && t.AyahNumber == ayahNumber), tafsirs).ToListAsync();
+            db.QuranTafsirs.AsNoTracking().Where(t => t.SurahNumber == surahNumber && t.AyahNumber == ayahNumber), tafsirs).ToListAsync();
 
         return new
         {
@@ -389,27 +402,34 @@ public class QuranService(AppDbContext db, StorageService storage) : IQuranServi
             .Where(t => EF.Functions.ILike(t.TranslationText, $"%{query}%"))
             .Select(t => new { t.SurahNumber, t.AyahNumber });
 
-        var matchedKeys = await arabicMatches.Union(translationMatches)
+        var matchedKeys = arabicMatches.Union(translationMatches);
+        var total = await matchedKeys.CountAsync();
+        var pageMatches = matchedKeys
             .OrderBy(k => k.SurahNumber).ThenBy(k => k.AyahNumber)
-            .ToListAsync();
-
-        var total = matchedKeys.Count;
-        var pageKeyList = matchedKeys.Skip((page - 1) * pageSize).Take(pageSize)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize);
+        var pageKeyRows = await pageMatches.ToListAsync();
+        var pageKeyList = pageKeyRows
             .Select(k => (k.SurahNumber, k.AyahNumber))
             .ToList();
-        var pageKeySet = pageKeyList.ToHashSet();
-        var surahNumbersOnPage = pageKeyList.Select(k => k.SurahNumber).ToHashSet();
 
-        // Fetch the superset (all ayahs/translations for surahs represented on this page), then
-        // narrow to the exact matched (surah, ayah) pairs in memory — composite-key IN-filtering
-        // doesn't translate reliably to SQL, and the dataset is small enough (6.2k ayahs total)
-        // for this to be cheap regardless.
-        var ayahsByKey = (await db.QuranAyahs.Where(a => surahNumbersOnPage.Contains(a.SurahNumber)).ToListAsync())
-            .Where(a => pageKeySet.Contains((a.SurahNumber, a.AyahNumber)))
-            .ToDictionary(a => (a.SurahNumber, a.AyahNumber));
+        // Join against the paged database query so transfer is proportional to
+        // pageSize, even when a search matches most of the Quran.
+        var pageAyahs = await (
+            from ayah in db.QuranAyahs.AsNoTracking()
+            join match in pageMatches on new { ayah.SurahNumber, ayah.AyahNumber }
+                equals new { match.SurahNumber, match.AyahNumber }
+            select ayah)
+            .ToListAsync();
+        var ayahsByKey = pageAyahs.ToDictionary(a => (a.SurahNumber, a.AyahNumber));
 
-        var translationsByKey = (await db.QuranTranslations.Where(t => surahNumbersOnPage.Contains(t.SurahNumber)).ToListAsync())
-            .Where(t => pageKeySet.Contains((t.SurahNumber, t.AyahNumber)))
+        var pageTranslations = await (
+            from translation in db.QuranTranslations.AsNoTracking()
+            join match in pageMatches on new { translation.SurahNumber, translation.AyahNumber }
+                equals new { match.SurahNumber, match.AyahNumber }
+            select translation)
+            .ToListAsync();
+        var translationsByKey = pageTranslations
             .GroupBy(t => (t.SurahNumber, t.AyahNumber))
             .ToDictionary(g => g.Key, g => g.ToList());
 

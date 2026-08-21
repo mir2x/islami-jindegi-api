@@ -10,6 +10,7 @@ public class CategoryService(AppDbContext db) : ICategoryService
     public async Task<IEnumerable<CategoryResponse>> GetAllAsync()
     {
         var categories = await db.Categories
+            .AsNoTracking()
             .Include(c => c.Children)
             .Where(c => c.ParentId == null)
             .OrderBy(c => c.Position)
@@ -25,6 +26,7 @@ public class CategoryService(AppDbContext db) : ICategoryService
     public async Task<PagedResult<CategoryResponse>> GetPagedAsync(int page, int pageSize, string? search, string? sort)
     {
         var query = db.Categories
+            .AsNoTracking()
             .Include(c => c.Children)
             .Where(c => c.ParentId == null);
 
@@ -56,6 +58,7 @@ public class CategoryService(AppDbContext db) : ICategoryService
     public async Task<CategoryResponse?> GetByIdAsync(Guid id)
     {
         var category = await db.Categories
+            .AsNoTracking()
             .Include(c => c.Children)
             .FirstOrDefaultAsync(c => c.Id == id);
         return category is null ? null : Mappers.ToCategoryResponse(category);

@@ -87,6 +87,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<HijriMonthSighting>()
             .HasIndex(h => new { h.CountryCode, h.GregorianStartDate });
 
+        // Delta-sync queries filter by availability and updated time on every
+        // content module. A composite index avoids scanning the full table.
+        modelBuilder.Entity<Book>().HasIndex(b => new { b.IsOfflineAvailable, b.UpdatedAt });
+        modelBuilder.Entity<Article>().HasIndex(a => new { a.IsOfflineAvailable, a.UpdatedAt });
+        modelBuilder.Entity<Bayan>().HasIndex(b => new { b.IsOfflineAvailable, b.UpdatedAt });
+        modelBuilder.Entity<Malfuzat>().HasIndex(m => new { m.IsOfflineAvailable, m.UpdatedAt });
+        modelBuilder.Entity<Masail>().HasIndex(m => new { m.IsOfflineAvailable, m.UpdatedAt });
+        modelBuilder.Entity<Dua>().HasIndex(d => new { d.IsOfflineAvailable, d.UpdatedAt });
+        modelBuilder.Entity<Madrasah>().HasIndex(m => new { m.IsOfflineAvailable, m.UpdatedAt });
+        modelBuilder.Entity<Page>().HasIndex(p => new { p.IsOfflineAvailable, p.UpdatedAt });
+
         modelBuilder.Entity<QuranAyah>()
             .HasIndex(a => new { a.SurahNumber, a.AyahNumber })
             .IsUnique();

@@ -10,6 +10,7 @@ public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : I
     public async Task<PagedResult<BayanListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort)
     {
         var query = db.Bayans
+            .AsNoTracking()
             .Include(b => b.Author)
             .Include(b => b.Categories)
             .AsQueryable();
@@ -98,6 +99,7 @@ public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : I
     public async Task<BayanDetail?> GetByIdAsync(Guid id)
     {
         var item = await db.Bayans
+            .AsNoTracking()
             .Include(b => b.Author)
             .Include(b => b.Categories)
             .FirstOrDefaultAsync(b => b.Id == id);
@@ -107,6 +109,7 @@ public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : I
     public async Task<IEnumerable<BayanDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Bayans
+            .AsNoTracking()
             .Where(b => b.IsOfflineAvailable && (since == null || b.UpdatedAt > since))
             .Include(b => b.Author)
             .Include(b => b.Categories)

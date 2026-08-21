@@ -2,6 +2,7 @@ using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace IslamiJindegiApi.Controllers;
 
@@ -10,12 +11,14 @@ namespace IslamiJindegiApi.Controllers;
 public class NamazTimesController(INamazTimeService service) : ControllerBase
 {
     [HttpGet]
+    [OutputCache(Duration = 300, Tags = ["namaz-times"])]
     public async Task<IActionResult> GetList(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null)
         => Ok(await service.GetListAsync(page, pageSize, search));
 
     [HttpGet("{id:guid}")]
+    [OutputCache(Duration = 300, Tags = ["namaz-times"])]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await service.GetByIdAsync(id);

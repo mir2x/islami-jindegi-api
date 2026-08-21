@@ -2,6 +2,7 @@ using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace IslamiJindegiApi.Controllers;
 
@@ -9,6 +10,7 @@ namespace IslamiJindegiApi.Controllers;
 public class HijriController(IHijriService service) : ControllerBase
 {
     [HttpGet("api/hijri/date")]
+    [OutputCache(Duration = 300, Tags = ["hijri"])]
     public async Task<IActionResult> GetDate(
         [FromQuery(Name = "country-code")] string? countryCode = "BD",
         [FromQuery] string? date = null)
@@ -22,6 +24,7 @@ public class HijriController(IHijriService service) : ControllerBase
     }
 
     [HttpGet("api/hijri/month")]
+    [OutputCache(Duration = 900, Tags = ["hijri"])]
     public async Task<IActionResult> GetMonth(
         [FromQuery(Name = "country-code")] string? countryCode = "BD",
         [FromQuery(Name = "hijri-year")] int? hijriYear = null,
@@ -36,12 +39,14 @@ public class HijriController(IHijriService service) : ControllerBase
     }
 
     [HttpGet("api/hijri/sightings")]
+    [OutputCache(Duration = 300, Tags = ["hijri"])]
     public async Task<IActionResult> GetSightings(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery] string? countryCode = null, [FromQuery] int? hijriYear = null)
         => Ok(await service.GetSightingsAsync(page, pageSize, countryCode, hijriYear));
 
     [HttpGet("api/hijri/sightings/{id:guid}")]
+    [OutputCache(Duration = 300, Tags = ["hijri"])]
     public async Task<IActionResult> GetSightingById(Guid id)
     {
         var result = await service.GetSightingByIdAsync(id);

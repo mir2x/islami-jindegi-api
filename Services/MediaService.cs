@@ -25,7 +25,7 @@ public class MediaService(AppDbContext db, StorageService storage) : IMediaServi
 
     public async Task<PagedResult<MediaResponse>> GetListAsync(int page, int pageSize, string? search, string? type)
     {
-        var query = db.Medias.AsQueryable();
+        var query = db.Medias.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(m => m.FileName.Contains(search));
         if (!string.IsNullOrWhiteSpace(type))

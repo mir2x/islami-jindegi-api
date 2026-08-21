@@ -10,8 +10,10 @@ public class MadrasahService(AppDbContext db, ContentSyncNotifier syncNotifier) 
     public async Task<PagedResult<MadrasahListItem>> GetListAsync(int page, int pageSize, string? search, bool? offlineAvailable = null)
     {
         var query = db.Madrasahs
+            .AsNoTracking()
             .Include(m => m.Infos)
             .Include(m => m.Photos)
+            .AsSplitQuery()
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -34,8 +36,10 @@ public class MadrasahService(AppDbContext db, ContentSyncNotifier syncNotifier) 
     public async Task<MadrasahDetail?> GetByIdAsync(Guid id)
     {
         var item = await db.Madrasahs
+            .AsNoTracking()
             .Include(m => m.Infos.OrderBy(i => i.Position))
             .Include(m => m.Photos.OrderBy(p => p.Position))
+            .AsSplitQuery()
             .FirstOrDefaultAsync(m => m.Id == id);
         return item is null ? null : Mappers.ToMadrasahDetail(item);
     }
@@ -47,9 +51,11 @@ public class MadrasahService(AppDbContext db, ContentSyncNotifier syncNotifier) 
         // too, so filtering on the parent's UpdatedAt alone is sufficient here
         // (unlike Books, where Chapters have their own controller/endpoints).
         var items = await db.Madrasahs
+            .AsNoTracking()
             .Where(m => m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
             .Include(m => m.Infos.OrderBy(i => i.Position))
             .Include(m => m.Photos.OrderBy(p => p.Position))
+            .AsSplitQuery()
             .ToListAsync();
         return items.Select(Mappers.ToMadrasahDetail);
     }

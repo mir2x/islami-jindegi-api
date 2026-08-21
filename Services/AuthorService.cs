@@ -9,7 +9,7 @@ public class AuthorService(AppDbContext db) : IAuthorService
 {
     public async Task<PagedResult<AuthorResponse>> GetListAsync(int page, int pageSize, string? search, string? sort = null)
     {
-        var query = db.Authors.AsQueryable();
+        var query = db.Authors.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(a => a.Name.Contains(search));
 

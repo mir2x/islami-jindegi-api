@@ -10,6 +10,7 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
     public async Task<PagedResult<ArticleListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort)
     {
         var query = db.Articles
+            .AsNoTracking()
             .Include(a => a.Author)
             .Include(a => a.Categories)
             .AsQueryable();
@@ -92,6 +93,7 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
     public async Task<ArticleDetail?> GetByIdAsync(Guid id)
     {
         var item = await db.Articles
+            .AsNoTracking()
             .Include(a => a.Author)
             .Include(a => a.Categories)
             .FirstOrDefaultAsync(a => a.Id == id);
@@ -101,6 +103,7 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
     public async Task<IEnumerable<ArticleDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Articles
+            .AsNoTracking()
             .Where(a => a.IsOfflineAvailable && (since == null || a.UpdatedAt > since))
             .Include(a => a.Author)
             .Include(a => a.Categories)

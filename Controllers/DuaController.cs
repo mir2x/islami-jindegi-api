@@ -2,6 +2,7 @@ using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace IslamiJindegiApi.Controllers;
 
@@ -10,6 +11,7 @@ namespace IslamiJindegiApi.Controllers;
 public class DuaController(IDuaService service) : ControllerBase
 {
     [HttpGet]
+    [OutputCache(Duration = 120, Tags = ["duas", "categories"])]
     public async Task<IActionResult> GetList(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null, [FromQuery] Guid? categoryId = null,
@@ -17,6 +19,13 @@ public class DuaController(IDuaService service) : ControllerBase
         [FromQuery] bool? offlineAvailable = null, [FromQuery] string? sort = null)
         => Ok(await service.GetListAsync(page, pageSize, search, categoryId, published, hasAudio, offlineAvailable, sort));
 
+    // Cached because every client that has no watermark yet asks for the
+    // same full-corpus response. Without this, each device re-runs the most
+    // expensive query in the service. OutputCache also collapses concurrent
+    // misses onto one execution, so a rollout cannot stampede the database.
+    // Admin writes evict this by tag (ResponseCacheInvalidationMiddleware),
+    // so cached does not mean stale.
+    [OutputCache(Duration = 300, Tags = ["duas"])]
     [HttpGet("offline-sync")]
     public async Task<IActionResult> GetOfflineSync([FromQuery] DateTime? since)
     {
@@ -27,16 +36,19 @@ public class DuaController(IDuaService service) : ControllerBase
     }
 
     [HttpGet("offline-ids")]
+    [OutputCache(Duration = 60, Tags = ["duas"])]
     public async Task<IActionResult> GetOfflineIds()
         => Ok(await service.GetOfflineIdsAsync());
 
     [HttpGet("categories")]
+    [OutputCache(Duration = 300, Tags = ["duas", "categories"])]
     public async Task<IActionResult> GetCategories(
         [FromQuery] bool published = true, [FromQuery] string? search = null,
         [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
         => Ok(await service.GetCategoriesAsync(published, search, page, pageSize));
 
     [HttpGet("{id:guid}")]
+    [OutputCache(Duration = 120, Tags = ["duas"])]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await service.GetByIdAsync(id);

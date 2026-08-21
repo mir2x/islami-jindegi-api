@@ -10,6 +10,7 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
     public async Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort)
     {
         var query = db.Malfuzats
+            .AsNoTracking()
             .Include(m => m.Author)
             .Include(m => m.Categories)
             .AsQueryable();
@@ -96,6 +97,7 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
     public async Task<MalfuzatDetail?> GetByIdAsync(Guid id)
     {
         var item = await db.Malfuzats
+            .AsNoTracking()
             .Include(m => m.Author)
             .Include(m => m.Categories)
             .FirstOrDefaultAsync(m => m.Id == id);
@@ -105,6 +107,7 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
     public async Task<IEnumerable<MalfuzatDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Malfuzats
+            .AsNoTracking()
             .Where(m => m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
             .Include(m => m.Author)
             .Include(m => m.Categories)

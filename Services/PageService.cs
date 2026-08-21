@@ -9,7 +9,7 @@ public class PageService(AppDbContext db, ContentSyncNotifier syncNotifier) : IP
 {
     public async Task<PagedResult<PageListItem>> GetListAsync(int page, int pageSize, string? search, bool? offlineAvailable = null)
     {
-        var query = db.Pages.AsQueryable();
+        var query = db.Pages.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(p => p.Title.Contains(search) || p.Slug.Contains(search));
         if (offlineAvailable.HasValue)
@@ -34,13 +34,14 @@ public class PageService(AppDbContext db, ContentSyncNotifier syncNotifier) : IP
 
     public async Task<PageDetail?> GetBySlugAsync(string slug)
     {
-        var item = await db.Pages.FirstOrDefaultAsync(p => p.Slug == slug);
+        var item = await db.Pages.AsNoTracking().FirstOrDefaultAsync(p => p.Slug == slug);
         return item is null ? null : Mappers.ToPageDetail(item);
     }
 
     public async Task<IEnumerable<PageDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Pages
+            .AsNoTracking()
             .Where(p => p.IsOfflineAvailable && (since == null || p.UpdatedAt > since))
             .ToListAsync();
         return items.Select(Mappers.ToPageDetail);

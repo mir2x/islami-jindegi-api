@@ -9,7 +9,7 @@ public class NamazTimeService(AppDbContext db) : INamazTimeService
 {
     public async Task<PagedResult<NamazTimeListItem>> GetListAsync(int page, int pageSize, string? search)
     {
-        var query = db.NamazTimes.AsQueryable();
+        var query = db.NamazTimes.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(n => n.Title.Contains(search) || (n.TitleBn != null && n.TitleBn.Contains(search)));
 

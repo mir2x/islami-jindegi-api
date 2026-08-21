@@ -2,6 +2,7 @@ using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace IslamiJindegiApi.Controllers;
 
@@ -10,10 +11,12 @@ namespace IslamiJindegiApi.Controllers;
 public class AuthorsController(IAuthorService service) : ControllerBase
 {
     [HttpGet]
+    [OutputCache(Duration = 120, Tags = ["authors"])]
     public async Task<IActionResult> GetList([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sort = null)
         => Ok(await service.GetListAsync(page, pageSize, search, sort));
 
     [HttpGet("{id:guid}")]
+    [OutputCache(Duration = 120, Tags = ["authors"])]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await service.GetByIdAsync(id);

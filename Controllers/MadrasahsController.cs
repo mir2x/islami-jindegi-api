@@ -2,6 +2,7 @@ using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace IslamiJindegiApi.Controllers;
 
@@ -10,11 +11,19 @@ namespace IslamiJindegiApi.Controllers;
 public class MadrasahsController(IMadrasahService service) : ControllerBase
 {
     [HttpGet]
+    [OutputCache(Duration = 120, Tags = ["madrasahs"])]
     public async Task<IActionResult> GetList(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null, [FromQuery] bool? offlineAvailable = null)
         => Ok(await service.GetListAsync(page, pageSize, search, offlineAvailable));
 
+    // Cached because every client that has no watermark yet asks for the
+    // same full-corpus response. Without this, each device re-runs the most
+    // expensive query in the service. OutputCache also collapses concurrent
+    // misses onto one execution, so a rollout cannot stampede the database.
+    // Admin writes evict this by tag (ResponseCacheInvalidationMiddleware),
+    // so cached does not mean stale.
+    [OutputCache(Duration = 300, Tags = ["madrasahs"])]
     [HttpGet("offline-sync")]
     public async Task<IActionResult> GetOfflineSync([FromQuery] DateTime? since)
     {
@@ -25,10 +34,12 @@ public class MadrasahsController(IMadrasahService service) : ControllerBase
     }
 
     [HttpGet("offline-ids")]
+    [OutputCache(Duration = 60, Tags = ["madrasahs"])]
     public async Task<IActionResult> GetOfflineIds()
         => Ok(await service.GetOfflineIdsAsync());
 
     [HttpGet("{id:guid}")]
+    [OutputCache(Duration = 120, Tags = ["madrasahs"])]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await service.GetByIdAsync(id);

@@ -9,7 +9,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
 {
     public async Task<PagedResult<ChapterListItem>> GetChaptersAsync(int page, int pageSize, Guid? bookId, string? search, string? sort)
     {
-        var query = db.Chapters.Include(c => c.Book).Include(c => c.SubChapters).AsQueryable();
+        var query = db.Chapters.AsNoTracking().Include(c => c.Book).Include(c => c.SubChapters).AsQueryable();
         if (bookId.HasValue) query = query.Where(c => c.BookId == bookId.Value);
         if (!string.IsNullOrWhiteSpace(search)) query = query.Where(c => c.Title.Contains(search));
 
@@ -38,7 +38,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
 
     public async Task<PagedResult<SubChapterListItem>> GetSubChaptersAsync(int page, int pageSize, Guid? bookId, string? search, string? sort)
     {
-        var query = db.SubChapters.Include(s => s.Chapter).ThenInclude(c => c.Book).AsQueryable();
+        var query = db.SubChapters.AsNoTracking().Include(s => s.Chapter).ThenInclude(c => c.Book).AsQueryable();
         if (bookId.HasValue) query = query.Where(s => s.Chapter.BookId == bookId.Value);
         if (!string.IsNullOrWhiteSpace(search)) query = query.Where(s => s.Title.Contains(search));
 
@@ -68,6 +68,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
     public async Task<IEnumerable<ChapterResponse>> GetChaptersByBookAsync(Guid bookId)
     {
         var chapters = await db.Chapters
+            .AsNoTracking()
             .Include(c => c.SubChapters)
             .Where(c => c.BookId == bookId)
             .OrderBy(c => c.Position)
@@ -78,6 +79,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
     public async Task<ChapterDetail?> GetChapterByIdAsync(Guid id)
     {
         var chapter = await db.Chapters
+            .AsNoTracking()
             .Include(c => c.Book)
             .Include(c => c.SubChapters)
             .FirstOrDefaultAsync(c => c.Id == id);
@@ -91,6 +93,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
     public async Task<SubChapterDetail?> GetSubChapterByIdAsync(Guid id)
     {
         var sub = await db.SubChapters
+            .AsNoTracking()
             .Include(s => s.Chapter).ThenInclude(c => c.Book)
             .FirstOrDefaultAsync(s => s.Id == id);
         if (sub is null) return null;

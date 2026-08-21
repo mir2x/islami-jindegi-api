@@ -109,7 +109,7 @@ public class HijriService(AppDbContext db) : IHijriService
 
     public async Task<PagedResult<HijriMonthSightingResponse>> GetSightingsAsync(int page, int pageSize, string? countryCode, int? hijriYear)
     {
-        var query = db.HijriMonthSightings.AsQueryable();
+        var query = db.HijriMonthSightings.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(countryCode))
             query = query.Where(s => s.CountryCode == countryCode.ToUpperInvariant());
         if (hijriYear.HasValue)

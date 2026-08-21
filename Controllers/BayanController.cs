@@ -2,6 +2,7 @@ using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace IslamiJindegiApi.Controllers;
 
@@ -10,6 +11,7 @@ namespace IslamiJindegiApi.Controllers;
 public class BayanController(IBayanService service) : ControllerBase
 {
     [HttpGet]
+    [OutputCache(Duration = 120, Tags = ["bayans", "authors", "categories"])]
     public async Task<IActionResult> GetList(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null, [FromQuery] Guid? authorId = null,
@@ -17,6 +19,13 @@ public class BayanController(IBayanService service) : ControllerBase
         [FromQuery] bool? offlineAvailable = null, [FromQuery] string? sort = null)
         => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, offlineAvailable, sort));
 
+    // Cached because every client that has no watermark yet asks for the
+    // same full-corpus response. Without this, each device re-runs the most
+    // expensive query in the service. OutputCache also collapses concurrent
+    // misses onto one execution, so a rollout cannot stampede the database.
+    // Admin writes evict this by tag (ResponseCacheInvalidationMiddleware),
+    // so cached does not mean stale.
+    [OutputCache(Duration = 300, Tags = ["bayans"])]
     [HttpGet("offline-sync")]
     public async Task<IActionResult> GetOfflineSync([FromQuery] DateTime? since)
     {
@@ -27,22 +36,26 @@ public class BayanController(IBayanService service) : ControllerBase
     }
 
     [HttpGet("offline-ids")]
+    [OutputCache(Duration = 60, Tags = ["bayans"])]
     public async Task<IActionResult> GetOfflineIds()
         => Ok(await service.GetOfflineIdsAsync());
 
     [HttpGet("authors")]
+    [OutputCache(Duration = 300, Tags = ["bayans", "authors"])]
     public async Task<IActionResult> GetAuthors(
         [FromQuery] bool published = true, [FromQuery] string? search = null,
         [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
         => Ok(await service.GetAuthorsAsync(published, search, page, pageSize));
 
     [HttpGet("categories")]
+    [OutputCache(Duration = 300, Tags = ["bayans", "categories"])]
     public async Task<IActionResult> GetCategories(
         [FromQuery] bool published = true, [FromQuery] string? search = null,
         [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
         => Ok(await service.GetCategoriesAsync(published, search, page, pageSize));
 
     [HttpGet("{id:guid}")]
+    [OutputCache(Duration = 120, Tags = ["bayans"])]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await service.GetByIdAsync(id);

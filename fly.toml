@@ -1,5 +1,9 @@
 app = 'islami-jindegi-dotnet-api'
-primary_region = 'bom'
+# 'sin', not 'bom': the database was recreated in sin (bom was over the org's
+# memory quota), so staying in bom put every query across a ~60-90ms
+# cross-region hop — and EF's AsSplitQuery pays that several times per
+# request. Keep the API in the same region as the database.
+primary_region = 'sin'
 
 [build]
 
@@ -10,7 +14,20 @@ primary_region = 'bom'
   auto_start_machines = true
   min_machines_running = 0
 
+  # Without a check Fly has no way to tell a wedged process from a healthy one,
+  # so a starved instance stays "started" and keeps black-holing traffic.
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '5s'
+    grace_period = '30s'
+    method = 'GET'
+    path = '/health'
+
+# Dedicated CPU, not shared: the API is CPU-bound on JSON serialisation and
+# response compression of large payloads. On shared-cpu-2x it ran at load 14
+# with 90% CPU pressure stall, which made even /health take 19s. Memory stays
+# at 4gb (only ~1.1gb is used) so this adds no per-region memory quota pressure.
 [[vm]]
-  memory = '512mb'
-  cpu_kind = 'shared'
-  cpus = 1
+  memory = '4gb'
+  cpu_kind = 'performance'
+  cpus = 2

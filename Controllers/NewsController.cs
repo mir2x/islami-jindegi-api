@@ -2,6 +2,7 @@ using IslamiJindegiApi.DTOs;
 using IslamiJindegiApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace IslamiJindegiApi.Controllers;
 
@@ -10,6 +11,7 @@ namespace IslamiJindegiApi.Controllers;
 public class NewsController(INewsService service) : ControllerBase
 {
     [HttpGet]
+    [OutputCache(Duration = 120, Tags = ["news"])]
     public async Task<IActionResult> GetList(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null, [FromQuery] bool? published = null,
@@ -17,6 +19,7 @@ public class NewsController(INewsService service) : ControllerBase
         => Ok(await service.GetListAsync(page, pageSize, search, published, sort));
 
     [HttpGet("{id:guid}")]
+    [OutputCache(Duration = 120, Tags = ["news"])]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await service.GetByIdAsync(id);

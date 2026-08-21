@@ -10,8 +10,10 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
     public async Task<PagedResult<BookListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort)
     {
         var query = db.Books
+            .AsNoTracking()
             .Include(b => b.Authors)
             .Include(b => b.Categories)
+            .AsSplitQuery()
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -94,6 +96,7 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
     public async Task<BookDetail?> GetByIdAsync(Guid id)
     {
         var book = await db.Books
+            .AsNoTracking()
             .Include(b => b.Authors)
             .Include(b => b.Categories).ThenInclude(c => c.Children)
             .Include(b => b.Chapters).ThenInclude(c => c.SubChapters)
@@ -108,6 +111,7 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
         // bump the parent Book — so a chapter-only edit must still surface the
         // book here, otherwise the client's delta sync would miss it.
         var books = await db.Books
+            .AsNoTracking()
             .Where(b => b.IsOfflineAvailable && (since == null
                 || b.UpdatedAt > since
                 || b.Chapters.Any(c => c.UpdatedAt > since)

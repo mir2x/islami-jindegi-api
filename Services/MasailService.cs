@@ -10,6 +10,7 @@ public class MasailService(AppDbContext db, ContentSyncNotifier syncNotifier) : 
     public async Task<PagedResult<MasailListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort)
     {
         var query = db.Masails
+            .AsNoTracking()
             .Include(m => m.Author)
             .Include(m => m.Categories)
             .AsQueryable();
@@ -96,6 +97,7 @@ public class MasailService(AppDbContext db, ContentSyncNotifier syncNotifier) : 
     public async Task<MasailDetail?> GetByIdAsync(Guid id)
     {
         var item = await db.Masails
+            .AsNoTracking()
             .Include(m => m.Author)
             .Include(m => m.Categories)
             .FirstOrDefaultAsync(m => m.Id == id);
@@ -105,6 +107,7 @@ public class MasailService(AppDbContext db, ContentSyncNotifier syncNotifier) : 
     public async Task<IEnumerable<MasailDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Masails
+            .AsNoTracking()
             .Where(m => m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
             .Include(m => m.Author)
             .Include(m => m.Categories)
