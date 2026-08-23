@@ -484,6 +484,29 @@ namespace IslamiJindegiApi.Migrations
                     b.ToTable("HijriMonthSightings");
                 });
 
+            modelBuilder.Entity("IslamiJindegiApi.Models.AppSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AskQuestion")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("DisplayOfflineQuran")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AppSettings");
+                });
+
             modelBuilder.Entity("IslamiJindegiApi.Models.Madrasah", b =>
                 {
                     b.Property<Guid>("Id")

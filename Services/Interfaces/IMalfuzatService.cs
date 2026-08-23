@@ -4,7 +4,7 @@ namespace IslamiJindegiApi.Services;
 
 public interface IMalfuzatService
 {
-    Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort);
+    Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort, DateOnly? dateFrom = null, DateOnly? dateTo = null);
     Task<IEnumerable<MalfuzatAuthorOption>> GetAuthorsAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
     Task<IEnumerable<MalfuzatCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
     Task<MalfuzatDetail?> GetByIdAsync(Guid id);

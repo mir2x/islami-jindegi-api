@@ -4,7 +4,7 @@ namespace IslamiJindegiApi.Services;
 
 public interface IBayanService
 {
-    Task<PagedResult<BayanListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort);
+    Task<PagedResult<BayanListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort, DateOnly? dateFrom = null, DateOnly? dateTo = null);
     Task<IEnumerable<BayanAuthorOption>> GetAuthorsAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
     Task<IEnumerable<BayanCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
     Task<BayanDetail?> GetByIdAsync(Guid id);

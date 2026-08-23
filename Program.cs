@@ -150,6 +150,14 @@ using (var scope = app.Services.CreateScope())
         return;
     }
 
+    if (args.Contains("--migrate-hijri-sightings"))
+    {
+        var source = Environment.GetEnvironmentVariable("HIJRI_DATABASE_URL")
+            ?? throw new InvalidOperationException("HIJRI_DATABASE_URL not set.");
+        await MigrateHijriSightingsCommand.RunAsync(source, db);
+        return;
+    }
+
     if (args.Contains("--import-tafsir"))
     {
         var dataDir = Environment.GetEnvironmentVariable("TAFSIR_DATA_DIR")

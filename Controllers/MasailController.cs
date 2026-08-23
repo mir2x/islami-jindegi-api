@@ -17,8 +17,9 @@ public class MasailController(IMasailService service) : ControllerBase
         [FromQuery] string? search = null, [FromQuery] Guid? authorId = null,
         [FromQuery] Guid? categoryId = null, [FromQuery] bool? published = null,
         [FromQuery] bool? hasAudio = null, [FromQuery] bool? offlineAvailable = null,
-        [FromQuery] string? sort = null)
-        => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, hasAudio, offlineAvailable, sort));
+        [FromQuery] string? sort = null,
+        [FromQuery] DateOnly? dateFrom = null, [FromQuery] DateOnly? dateTo = null)
+        => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, hasAudio, offlineAvailable, sort, dateFrom, dateTo));
 
     // Cached because every client that has no watermark yet asks for the
     // same full-corpus response. Without this, each device re-runs the most

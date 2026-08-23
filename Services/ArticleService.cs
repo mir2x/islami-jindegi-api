@@ -7,7 +7,7 @@ namespace IslamiJindegiApi.Services;
 
 public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) : IArticleService
 {
-    public async Task<PagedResult<ArticleListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort)
+    public async Task<PagedResult<ArticleListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort, DateOnly? dateFrom = null, DateOnly? dateTo = null)
     {
         var query = db.Articles
             .AsNoTracking()
@@ -25,6 +25,25 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
             query = query.Where(a => a.Published == published.Value);
         if (offlineAvailable.HasValue)
             query = query.Where(a => a.IsOfflineAvailable == offlineAvailable.Value);
+
+        // The date filter sends whole days. `dateTo` is inclusive, so it
+        // compares against the start of the following day; the column is
+        // `timestamp with time zone`, which Npgsql only accepts as UTC.
+        //
+        // PublishedAt is null for about 80% of article rows — content carried over from the
+        // legacy backend kept its creation date and never got a publish date.
+        // Filtering on PublishedAt alone would hide all of them, so the date
+        // shown to readers, and filtered on here, falls back to CreatedAt.
+        if (dateFrom.HasValue)
+        {
+            var from = DateTime.SpecifyKind(dateFrom.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(a => (a.PublishedAt ?? a.CreatedAt) >= from);
+        }
+        if (dateTo.HasValue)
+        {
+            var toExclusive = DateTime.SpecifyKind(dateTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(a => (a.PublishedAt ?? a.CreatedAt) < toExclusive);
+        }
 
         query = sort switch
         {

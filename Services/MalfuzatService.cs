@@ -7,7 +7,7 @@ namespace IslamiJindegiApi.Services;
 
 public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) : IMalfuzatService
 {
-    public async Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort)
+    public async Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort, DateOnly? dateFrom = null, DateOnly? dateTo = null)
     {
         var query = db.Malfuzats
             .AsNoTracking()
@@ -27,6 +27,25 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
             query = query.Where(m => m.HasAudio == hasAudio.Value);
         if (offlineAvailable.HasValue)
             query = query.Where(m => m.IsOfflineAvailable == offlineAvailable.Value);
+
+        // The date filter sends whole days. `dateTo` is inclusive, so it
+        // compares against the start of the following day; the column is
+        // `timestamp with time zone`, which Npgsql only accepts as UTC.
+        //
+        // PublishedAt is null for all malfuzat rows — content carried over from the
+        // legacy backend kept its creation date and never got a publish date.
+        // Filtering on PublishedAt alone would hide all of them, so the date
+        // shown to readers, and filtered on here, falls back to CreatedAt.
+        if (dateFrom.HasValue)
+        {
+            var from = DateTime.SpecifyKind(dateFrom.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(m => (m.PublishedAt ?? m.CreatedAt) >= from);
+        }
+        if (dateTo.HasValue)
+        {
+            var toExclusive = DateTime.SpecifyKind(dateTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(m => (m.PublishedAt ?? m.CreatedAt) < toExclusive);
+        }
 
         query = sort switch
         {

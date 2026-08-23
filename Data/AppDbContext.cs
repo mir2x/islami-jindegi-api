@@ -28,6 +28,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<QuranTranslation> QuranTranslations => Set<QuranTranslation>();
     public DbSet<QuranWord> QuranWords => Set<QuranWord>();
     public DbSet<QuranTafsir> QuranTafsirs => Set<QuranTafsir>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
