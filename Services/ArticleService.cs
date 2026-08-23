@@ -45,7 +45,7 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
             query = query.Where(a => (a.PublishedAt ?? a.CreatedAt) < toExclusive);
         }
 
-        query = sort switch
+        var orderedQuery = sort switch
         {
             "position_desc" => query.OrderByDescending(a => a.Position),
             "position_asc" => query.OrderBy(a => a.Position),
@@ -61,7 +61,7 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         };
 
         var total = await query.CountAsync();
-        var data = await query
+        var data = await orderedQuery.ThenBy(a => a.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -109,21 +109,32 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         return data.Select(c => new ArticleCategoryOption(c.Id, c.Title, c.Count));
     }
 
-    public async Task<ArticleDetail?> GetByIdAsync(Guid id)
+    public async Task<ArticleDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false)
     {
         var item = await db.Articles
             .AsNoTracking()
             .Include(a => a.Author)
             .Include(a => a.Categories)
-            .FirstOrDefaultAsync(a => a.Id == id);
-        return item is null ? null : Mappers.ToArticleDetail(item);
+            .FirstOrDefaultAsync(a => a.Id == id && (includeUnpublished || a.Published));
+        if (item is null) return null;
+        // Historical nullable positions are not navigable until backfilled.
+        if (!item.Position.HasValue) return Mappers.ToArticleDetail(item);
+        var previous = await db.Articles.AsNoTracking()
+            .Where(a => a.Published && a.Position.HasValue && (a.Position > item.Position || (a.Position == item.Position && a.Id.CompareTo(item.Id) > 0)))
+            .OrderBy(a => a.Position).ThenBy(a => a.Id)
+            .Select(a => new SiblingRef(a.Id, a.Title, a.Position!.Value)).FirstOrDefaultAsync();
+        var next = await db.Articles.AsNoTracking()
+            .Where(a => a.Published && a.Position.HasValue && (a.Position < item.Position || (a.Position == item.Position && a.Id.CompareTo(item.Id) < 0)))
+            .OrderByDescending(a => a.Position).ThenByDescending(a => a.Id)
+            .Select(a => new SiblingRef(a.Id, a.Title, a.Position!.Value)).FirstOrDefaultAsync();
+        return Mappers.ToArticleDetail(item) with { Previous = previous, Next = next };
     }
 
     public async Task<IEnumerable<ArticleDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Articles
             .AsNoTracking()
-            .Where(a => a.IsOfflineAvailable && (since == null || a.UpdatedAt > since))
+            .Where(a => a.Published && a.IsOfflineAvailable && (since == null || a.UpdatedAt > since))
             .Include(a => a.Author)
             .Include(a => a.Categories)
             .ToListAsync();
@@ -131,7 +142,7 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
     }
 
     public async Task<List<Guid>> GetOfflineIdsAsync()
-        => await db.Articles.Where(a => a.IsOfflineAvailable).Select(a => a.Id).ToListAsync();
+        => await db.Articles.Where(a => a.Published && a.IsOfflineAvailable).Select(a => a.Id).ToListAsync();
 
     public async Task<ArticleListItem> CreateAsync(SaveArticleRequest req)
     {

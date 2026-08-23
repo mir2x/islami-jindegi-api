@@ -47,7 +47,7 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
             query = query.Where(m => (m.PublishedAt ?? m.CreatedAt) < toExclusive);
         }
 
-        query = sort switch
+        var orderedQuery = sort switch
         {
             "position_desc" => query.OrderByDescending(m => m.Position),
             "position_asc" => query.OrderBy(m => m.Position),
@@ -65,7 +65,7 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
         };
 
         var total = await query.CountAsync();
-        var data = await query
+        var data = await orderedQuery.ThenBy(m => m.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -113,21 +113,30 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
         return data.Select(c => new MalfuzatCategoryOption(c.Id, c.Title, c.Count));
     }
 
-    public async Task<MalfuzatDetail?> GetByIdAsync(Guid id)
+    public async Task<MalfuzatDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false)
     {
         var item = await db.Malfuzats
             .AsNoTracking()
             .Include(m => m.Author)
             .Include(m => m.Categories)
-            .FirstOrDefaultAsync(m => m.Id == id);
-        return item is null ? null : Mappers.ToMalfuzatDetail(item);
+            .FirstOrDefaultAsync(m => m.Id == id && (includeUnpublished || m.Published));
+        if (item is null) return null;
+        var previous = await db.Malfuzats.AsNoTracking()
+            .Where(m => m.Published && (m.Position > item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) > 0)))
+            .OrderBy(m => m.Position).ThenBy(m => m.Id)
+            .Select(m => new SiblingRef(m.Id, m.Title, m.Position)).FirstOrDefaultAsync();
+        var next = await db.Malfuzats.AsNoTracking()
+            .Where(m => m.Published && (m.Position < item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) < 0)))
+            .OrderByDescending(m => m.Position).ThenByDescending(m => m.Id)
+            .Select(m => new SiblingRef(m.Id, m.Title, m.Position)).FirstOrDefaultAsync();
+        return Mappers.ToMalfuzatDetail(item) with { Previous = previous, Next = next };
     }
 
     public async Task<IEnumerable<MalfuzatDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Malfuzats
             .AsNoTracking()
-            .Where(m => m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
+            .Where(m => m.Published && m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
             .Include(m => m.Author)
             .Include(m => m.Categories)
             .ToListAsync();
@@ -135,7 +144,7 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
     }
 
     public async Task<List<Guid>> GetOfflineIdsAsync()
-        => await db.Malfuzats.Where(m => m.IsOfflineAvailable).Select(m => m.Id).ToListAsync();
+        => await db.Malfuzats.Where(m => m.Published && m.IsOfflineAvailable).Select(m => m.Id).ToListAsync();
 
     public async Task<(MalfuzatListItem? Item, string? Error)> CreateAsync(SaveMalfuzatRequest req)
     {

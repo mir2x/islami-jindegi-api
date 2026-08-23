@@ -27,7 +27,7 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
         if (offlineAvailable.HasValue)
             query = query.Where(b => b.IsOfflineAvailable == offlineAvailable.Value);
 
-        query = sort switch
+        var orderedQuery = sort switch
         {
             "position_desc" => query.OrderByDescending(b => b.Position),
             "position_asc" => query.OrderBy(b => b.Position),
@@ -43,7 +43,7 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
         };
 
         var total = await query.CountAsync();
-        var data = await query
+        var data = await orderedQuery.ThenBy(b => b.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(b => new { Book = b, ChapterCount = b.Chapters.Count() })
@@ -93,7 +93,7 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
         return data.Select(c => new BookCategoryOption(c.Id, c.Title, c.Count));
     }
 
-    public async Task<BookDetail?> GetByIdAsync(Guid id)
+    public async Task<BookDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false)
     {
         var book = await db.Books
             .AsNoTracking()
@@ -101,8 +101,23 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
             .Include(b => b.Categories).ThenInclude(c => c.Children)
             .Include(b => b.Chapters).ThenInclude(c => c.SubChapters)
             .AsSplitQuery()
-            .FirstOrDefaultAsync(b => b.Id == id);
-        return book is null ? null : Mappers.ToBookDetail(book);
+            .FirstOrDefaultAsync(b => b.Id == id && (includeUnpublished || b.Published));
+        if (book is null) return null;
+
+        // ASC sequence: previous seeks downward, next seeks upward.
+        var previous = await db.Books.AsNoTracking()
+            .Where(b => b.Published && (b.Position < book.Position
+                || (b.Position == book.Position && b.Id.CompareTo(book.Id) < 0)))
+            .OrderByDescending(b => b.Position).ThenByDescending(b => b.Id)
+            .Select(b => new SiblingRef(b.Id, b.Title, b.Position))
+            .FirstOrDefaultAsync();
+        var next = await db.Books.AsNoTracking()
+            .Where(b => b.Published && (b.Position > book.Position
+                || (b.Position == book.Position && b.Id.CompareTo(book.Id) > 0)))
+            .OrderBy(b => b.Position).ThenBy(b => b.Id)
+            .Select(b => new SiblingRef(b.Id, b.Title, b.Position))
+            .FirstOrDefaultAsync();
+        return Mappers.ToBookDetail(book) with { Previous = previous, Next = next };
     }
 
     public async Task<IEnumerable<BookDetail>> GetOfflineSyncAsync(DateTime? since)
@@ -112,7 +127,7 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
         // book here, otherwise the client's delta sync would miss it.
         var books = await db.Books
             .AsNoTracking()
-            .Where(b => b.IsOfflineAvailable && (since == null
+            .Where(b => b.Published && b.IsOfflineAvailable && (since == null
                 || b.UpdatedAt > since
                 || b.Chapters.Any(c => c.UpdatedAt > since)
                 || b.Chapters.Any(c => c.SubChapters.Any(s => s.UpdatedAt > since))))
@@ -125,7 +140,7 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
     }
 
     public async Task<List<Guid>> GetOfflineIdsAsync()
-        => await db.Books.Where(b => b.IsOfflineAvailable).Select(b => b.Id).ToListAsync();
+        => await db.Books.Where(b => b.Published && b.IsOfflineAvailable).Select(b => b.Id).ToListAsync();
 
     public async Task<BookListItem> CreateAsync(SaveBookRequest req)
     {

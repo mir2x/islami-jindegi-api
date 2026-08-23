@@ -26,7 +26,9 @@ public record DuaDetail(
     int Position,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    List<CategoryResponse> Categories);
+    List<CategoryResponse> Categories,
+    SiblingRef? Previous = null,
+    SiblingRef? Next = null);
 
 public record DuaCategoryOption(Guid Id, string Title, int Count);
 

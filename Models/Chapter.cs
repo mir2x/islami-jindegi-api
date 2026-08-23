@@ -6,6 +6,8 @@ public class Chapter
     public string Title { get; set; } = string.Empty;
     public string? Body { get; set; }
     public int Position { get; set; }
+    /// <summary>Null when the chapter is a non-navigable header.</summary>
+    public int? ReadingOrder { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

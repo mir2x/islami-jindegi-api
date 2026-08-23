@@ -40,7 +40,7 @@ public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : I
             query = query.Where(b => b.PublishedAt < toExclusive);
         }
 
-        query = sort switch
+        var orderedQuery = sort switch
         {
             // "date" predates the sortable admin columns and is used by the public site — keep it.
             "date" => query.OrderByDescending(b => b.PublishedAt),
@@ -62,7 +62,7 @@ public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : I
         };
 
         var total = await query.CountAsync();
-        var data = await query
+        var data = await orderedQuery.ThenBy(b => b.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -110,21 +110,36 @@ public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : I
         return data.Select(c => new BayanCategoryOption(c.Id, c.Title, c.Count));
     }
 
-    public async Task<BayanDetail?> GetByIdAsync(Guid id)
+    public async Task<BayanDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false)
     {
         var item = await db.Bayans
             .AsNoTracking()
             .Include(b => b.Author)
             .Include(b => b.Categories)
-            .FirstOrDefaultAsync(b => b.Id == id);
-        return item is null ? null : Mappers.ToBayanDetail(item);
+            .FirstOrDefaultAsync(b => b.Id == id && (includeUnpublished || b.Published));
+        if (item is null) return null;
+
+        // DESC sequence: previous seeks upward, next seeks downward.
+        var previous = await db.Bayans.AsNoTracking()
+            .Where(b => b.Published && (b.Position > item.Position
+                || (b.Position == item.Position && b.Id.CompareTo(item.Id) > 0)))
+            .OrderBy(b => b.Position).ThenBy(b => b.Id)
+            .Select(b => new SiblingRef(b.Id, b.Title, b.Position))
+            .FirstOrDefaultAsync();
+        var next = await db.Bayans.AsNoTracking()
+            .Where(b => b.Published && (b.Position < item.Position
+                || (b.Position == item.Position && b.Id.CompareTo(item.Id) < 0)))
+            .OrderByDescending(b => b.Position).ThenByDescending(b => b.Id)
+            .Select(b => new SiblingRef(b.Id, b.Title, b.Position))
+            .FirstOrDefaultAsync();
+        return Mappers.ToBayanDetail(item) with { Previous = previous, Next = next };
     }
 
     public async Task<IEnumerable<BayanDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Bayans
             .AsNoTracking()
-            .Where(b => b.IsOfflineAvailable && (since == null || b.UpdatedAt > since))
+            .Where(b => b.Published && b.IsOfflineAvailable && (since == null || b.UpdatedAt > since))
             .Include(b => b.Author)
             .Include(b => b.Categories)
             .ToListAsync();
@@ -132,7 +147,7 @@ public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : I
     }
 
     public async Task<List<Guid>> GetOfflineIdsAsync()
-        => await db.Bayans.Where(b => b.IsOfflineAvailable).Select(b => b.Id).ToListAsync();
+        => await db.Bayans.Where(b => b.Published && b.IsOfflineAvailable).Select(b => b.Id).ToListAsync();
 
     public async Task<(BayanListItem? Item, string? Error)> CreateAsync(SaveBayanRequest req)
     {

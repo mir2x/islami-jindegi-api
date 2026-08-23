@@ -99,6 +99,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Madrasah>().HasIndex(m => new { m.IsOfflineAvailable, m.UpdatedAt });
         modelBuilder.Entity<Page>().HasIndex(p => new { p.IsOfflineAvailable, p.UpdatedAt });
 
+        // Canonical content sequence: the trailing Id is essential while an
+        // admin reorder temporarily produces duplicate positions.
+        modelBuilder.Entity<Bayan>().HasIndex(b => new { b.Published, b.Position, b.Id });
+        modelBuilder.Entity<Book>().HasIndex(b => new { b.Published, b.Position, b.Id });
+        modelBuilder.Entity<Malfuzat>().HasIndex(m => new { m.Published, m.Position, m.Id });
+        modelBuilder.Entity<Masail>().HasIndex(m => new { m.Published, m.Position, m.Id });
+        modelBuilder.Entity<Dua>().HasIndex(d => new { d.Published, d.Position, d.Id });
+        modelBuilder.Entity<News>().HasIndex(n => new { n.Published, n.Position, n.Id });
+        modelBuilder.Entity<Article>().HasIndex(a => new { a.Published, a.Position, a.Id });
+        modelBuilder.Entity<Madrasah>().HasIndex(m => new { m.Position, m.Id });
+        modelBuilder.Entity<Chapter>().HasIndex(c => new { c.BookId, c.ReadingOrder });
+        modelBuilder.Entity<SubChapter>().HasIndex(s => s.ReadingOrder);
+
         modelBuilder.Entity<QuranAyah>()
             .HasIndex(a => new { a.SurahNumber, a.AyahNumber })
             .IsUnique();

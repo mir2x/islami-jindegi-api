@@ -36,7 +36,9 @@ public record BookDetail(
     DateTime UpdatedAt,
     List<AuthorResponse> Authors,
     List<CategoryResponse> Categories,
-    List<ChapterResponse> Chapters);
+    List<ChapterResponse> Chapters,
+    SiblingRef? Previous = null,
+    SiblingRef? Next = null);
 
 public record SaveBookRequest(
     string Title,

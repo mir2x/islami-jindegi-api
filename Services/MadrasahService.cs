@@ -23,7 +23,7 @@ public class MadrasahService(AppDbContext db, ContentSyncNotifier syncNotifier) 
 
         var total = await query.CountAsync();
         var data = await query
-            .OrderBy(m => m.Position)
+            .OrderBy(m => m.Position).ThenBy(m => m.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -41,7 +41,16 @@ public class MadrasahService(AppDbContext db, ContentSyncNotifier syncNotifier) 
             .Include(m => m.Photos.OrderBy(p => p.Position))
             .AsSplitQuery()
             .FirstOrDefaultAsync(m => m.Id == id);
-        return item is null ? null : Mappers.ToMadrasahDetail(item);
+        if (item is null) return null;
+        var previous = await db.Madrasahs.AsNoTracking()
+            .Where(m => m.Position < item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) < 0))
+            .OrderByDescending(m => m.Position).ThenByDescending(m => m.Id)
+            .Select(m => new SiblingRef(m.Id, m.Title, m.Position)).FirstOrDefaultAsync();
+        var next = await db.Madrasahs.AsNoTracking()
+            .Where(m => m.Position > item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) > 0))
+            .OrderBy(m => m.Position).ThenBy(m => m.Id)
+            .Select(m => new SiblingRef(m.Id, m.Title, m.Position)).FirstOrDefaultAsync();
+        return Mappers.ToMadrasahDetail(item) with { Previous = previous, Next = next };
     }
 
     public async Task<IEnumerable<MadrasahDetail>> GetOfflineSyncAsync(DateTime? since)

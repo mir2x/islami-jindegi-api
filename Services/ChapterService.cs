@@ -65,42 +65,47 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         return new PagedResult<SubChapterListItem>(data, total, page, pageSize);
     }
 
-    public async Task<IEnumerable<ChapterResponse>> GetChaptersByBookAsync(Guid bookId)
+    public async Task<IEnumerable<ChapterResponse>> GetChaptersByBookAsync(Guid bookId, bool includeUnpublished = false)
     {
         var chapters = await db.Chapters
             .AsNoTracking()
             .Include(c => c.SubChapters)
-            .Where(c => c.BookId == bookId)
+            .Where(c => c.BookId == bookId && (includeUnpublished || c.Book.Published))
             .OrderBy(c => c.Position)
             .ToListAsync();
         return chapters.Select(Mappers.ToChapterResponse);
     }
 
-    public async Task<ChapterDetail?> GetChapterByIdAsync(Guid id)
+    public async Task<ChapterDetail?> GetChapterByIdAsync(Guid id, bool includeUnpublished = false)
     {
         var chapter = await db.Chapters
             .AsNoTracking()
             .Include(c => c.Book)
             .Include(c => c.SubChapters)
-            .FirstOrDefaultAsync(c => c.Id == id);
+            .FirstOrDefaultAsync(c => c.Id == id && (includeUnpublished || c.Book.Published));
         if (chapter is null) return null;
+        var (previous, next) = chapter.ReadingOrder is int order
+            ? await GetBookNodeSiblingsAsync(chapter.BookId, order)
+            : (null, null);
         return new ChapterDetail(
             chapter.Id, chapter.Title, chapter.Body, chapter.Position,
             chapter.BookId, chapter.Book.Title,
-            chapter.SubChapters.OrderBy(s => s.Position).Select(Mappers.ToSubChapterResponse).ToList());
+            chapter.SubChapters.OrderBy(s => s.ReadingOrder).Select(Mappers.ToSubChapterResponse).ToList(),
+            chapter.ReadingOrder, previous, next);
     }
 
-    public async Task<SubChapterDetail?> GetSubChapterByIdAsync(Guid id)
+    public async Task<SubChapterDetail?> GetSubChapterByIdAsync(Guid id, bool includeUnpublished = false)
     {
         var sub = await db.SubChapters
             .AsNoTracking()
             .Include(s => s.Chapter).ThenInclude(c => c.Book)
-            .FirstOrDefaultAsync(s => s.Id == id);
+            .FirstOrDefaultAsync(s => s.Id == id && (includeUnpublished || s.Chapter.Book.Published));
         if (sub is null) return null;
+        var (previous, next) = await GetBookNodeSiblingsAsync(sub.Chapter.BookId, sub.ReadingOrder);
         return new SubChapterDetail(
             sub.Id, sub.Title, sub.Body, sub.Position,
             sub.ChapterId, sub.Chapter.Title, sub.Chapter.BookId, sub.Chapter.Book.Title,
-            sub.ParentSubChapterId);
+            sub.ParentSubChapterId, sub.ReadingOrder, previous, next);
     }
 
     public async Task<(ChapterResponse? Chapter, bool BookNotFound)> CreateChapterAsync(Guid bookId, SaveChapterRequest req)
@@ -124,6 +129,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         };
         db.Chapters.Add(chapter);
         await db.SaveChangesAsync();
+        await RecomputeReadingOrderAsync(bookId);
         chapter.SubChapters = [];
         if (book.IsOfflineAvailable) await syncNotifier.NotifyAsync("books");
         return (Mappers.ToChapterResponse(chapter), false);
@@ -140,6 +146,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         chapter.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        await RecomputeReadingOrderAsync(chapter.BookId);
         if (await IsBookOfflineAvailableAsync(chapter.BookId)) await syncNotifier.NotifyAsync("books");
         return Mappers.ToChapterResponse(chapter);
     }
@@ -151,6 +158,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         var wasBookOfflineAvailable = await IsBookOfflineAvailableAsync(chapter.BookId);
         db.Chapters.Remove(chapter);
         await db.SaveChangesAsync();
+        await RecomputeReadingOrderAsync(chapter.BookId);
         if (wasBookOfflineAvailable) await syncNotifier.NotifyAsync("books");
         return true;
     }
@@ -187,6 +195,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         };
         db.SubChapters.Add(sub);
         await db.SaveChangesAsync();
+        await RecomputeReadingOrderAsync(chapter.BookId);
         if (await IsBookOfflineAvailableAsync(chapter.BookId)) await syncNotifier.NotifyAsync("books");
         return (Mappers.ToSubChapterResponse(sub), false);
     }
@@ -213,6 +222,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         };
         db.SubChapters.Add(sub);
         await db.SaveChangesAsync();
+        await RecomputeReadingOrderAsync(chapter.BookId);
         if (await IsBookOfflineAvailableAsync(chapter.BookId)) await syncNotifier.NotifyAsync("books");
         return (Mappers.ToSubChapterResponse(sub), false);
     }
@@ -222,6 +232,8 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         var sub = await db.SubChapters.FindAsync(id);
         if (sub is null) return null;
 
+        var oldBookId = await db.Chapters.Where(c => c.Id == sub.ChapterId).Select(c => c.BookId).FirstOrDefaultAsync();
+
         sub.Title = req.Title;
         sub.Body = req.Body;
         if (req.Position.HasValue) sub.Position = req.Position.Value;
@@ -230,6 +242,9 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         sub.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        await RecomputeReadingOrderAsync(oldBookId);
+        var newBookId = await db.Chapters.Where(c => c.Id == sub.ChapterId).Select(c => c.BookId).FirstOrDefaultAsync();
+        if (newBookId != oldBookId) await RecomputeReadingOrderAsync(newBookId);
         if (await IsBookOfflineAvailableViaChapterAsync(sub.ChapterId)) await syncNotifier.NotifyAsync("books");
         return Mappers.ToSubChapterResponse(sub);
     }
@@ -241,7 +256,80 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         var wasBookOfflineAvailable = await IsBookOfflineAvailableViaChapterAsync(sub.ChapterId);
         db.SubChapters.Remove(sub);
         await db.SaveChangesAsync();
+        var bookId = await db.Chapters.Where(c => c.Id == sub.ChapterId).Select(c => c.BookId).FirstOrDefaultAsync();
+        await RecomputeReadingOrderAsync(bookId);
         if (wasBookOfflineAvailable) await syncNotifier.NotifyAsync("books");
         return true;
+    }
+
+    /// <summary>Keeps the book's navigable depth-first sequence dense.</summary>
+    public async Task RecomputeReadingOrderAsync(Guid bookId)
+    {
+        var chapters = await db.Chapters
+            .Where(c => c.BookId == bookId)
+            .Include(c => c.SubChapters)
+            .OrderBy(c => c.Position).ThenBy(c => c.Id)
+            .ToListAsync();
+        var order = 0;
+        foreach (var chapter in chapters)
+        {
+            if (chapter.SubChapters.Count == 0)
+            {
+                chapter.ReadingOrder = order++;
+                continue;
+            }
+
+            chapter.ReadingOrder = null;
+            var roots = chapter.SubChapters.Where(s => s.ParentSubChapterId is null)
+                .OrderBy(s => s.Position).ThenBy(s => s.Id).ToList();
+            var children = chapter.SubChapters.Where(s => s.ParentSubChapterId is not null)
+                .GroupBy(s => s.ParentSubChapterId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderBy(s => s.Position).ThenBy(s => s.Id).ToList());
+            var visited = new HashSet<Guid>();
+            void Walk(IEnumerable<SubChapter> nodes)
+            {
+                foreach (var node in nodes)
+                {
+                    if (!visited.Add(node.Id)) continue;
+                    node.ReadingOrder = order++;
+                    if (children.TryGetValue(node.Id, out var descendants)) Walk(descendants);
+                }
+            }
+            Walk(roots);
+            // Legacy data has no database constraint that a parent belongs to
+            // this chapter. Preserve every node in the sequence even when its
+            // parent is deleted, cross-chapter, or cyclic.
+            Walk(chapter.SubChapters
+                .Where(s => !visited.Contains(s.Id))
+                .OrderBy(s => s.Position).ThenBy(s => s.Id));
+        }
+        await db.SaveChangesAsync();
+    }
+
+    async Task<(BookNodeRef? Previous, BookNodeRef? Next)> GetBookNodeSiblingsAsync(Guid bookId, int order)
+    {
+        async Task<(BookNodeRef? Chapter, BookNodeRef? Sub)> CandidatesAsync(bool next)
+        {
+            var chapterQuery = db.Chapters.AsNoTracking()
+                .Where(c => c.BookId == bookId && c.ReadingOrder != null
+                    && (next ? c.ReadingOrder > order : c.ReadingOrder < order));
+            var subQuery = db.SubChapters.AsNoTracking()
+                .Where(s => s.Chapter.BookId == bookId
+                    && (next ? s.ReadingOrder > order : s.ReadingOrder < order));
+            var chapter = next
+                ? await chapterQuery.OrderBy(c => c.ReadingOrder).Select(c => new BookNodeRef(c.Id, c.Title, c.ReadingOrder!.Value, "chapter")).FirstOrDefaultAsync()
+                : await chapterQuery.OrderByDescending(c => c.ReadingOrder).Select(c => new BookNodeRef(c.Id, c.Title, c.ReadingOrder!.Value, "chapter")).FirstOrDefaultAsync();
+            var sub = next
+                ? await subQuery.OrderBy(s => s.ReadingOrder).Select(s => new BookNodeRef(s.Id, s.Title, s.ReadingOrder, "subchapter")).FirstOrDefaultAsync()
+                : await subQuery.OrderByDescending(s => s.ReadingOrder).Select(s => new BookNodeRef(s.Id, s.Title, s.ReadingOrder, "subchapter")).FirstOrDefaultAsync();
+            return (chapter, sub);
+        }
+
+        var (previousChapter, previousSub) = await CandidatesAsync(next: false);
+        var (nextChapter, nextSub) = await CandidatesAsync(next: true);
+        BookNodeRef? Choose(BookNodeRef? chapter, BookNodeRef? sub, bool isNext) => chapter is null ? sub
+            : sub is null ? chapter
+            : (isNext ? chapter.ReadingOrder < sub.ReadingOrder : chapter.ReadingOrder > sub.ReadingOrder) ? chapter : sub;
+        return (Choose(previousChapter, previousSub, false), Choose(nextChapter, nextSub, true));
     }
 }

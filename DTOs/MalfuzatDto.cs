@@ -10,7 +10,7 @@ public record MalfuzatListItem(
     bool Published,
     bool IsOfflineAvailable,
     DateTime? PublishedAt,
-    int? Position,
+    int Position,
     DateTime CreatedAt,
     DateTime UpdatedAt,
     AuthorResponse Author,
@@ -28,11 +28,13 @@ public record MalfuzatDetail(
     bool Published,
     bool IsOfflineAvailable,
     DateTime? PublishedAt,
-    int? Position,
+    int Position,
     DateTime CreatedAt,
     DateTime UpdatedAt,
     AuthorResponse Author,
-    List<CategoryResponse> Categories);
+    List<CategoryResponse> Categories,
+    SiblingRef? Previous = null,
+    SiblingRef? Next = null);
 
 public record MalfuzatAuthorOption(Guid Id, string Name, int Count);
 public record MalfuzatCategoryOption(Guid Id, string Title, int Count);

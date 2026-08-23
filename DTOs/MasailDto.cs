@@ -31,7 +31,9 @@ public record MasailDetail(
     DateTime CreatedAt,
     DateTime UpdatedAt,
     AuthorResponse? Author,
-    List<CategoryResponse> Categories);
+    List<CategoryResponse> Categories,
+    SiblingRef? Previous = null,
+    SiblingRef? Next = null);
 
 public record MasailAuthorOption(Guid Id, string Name, int Count);
 public record MasailCategoryOption(Guid Id, string Title, int Count);

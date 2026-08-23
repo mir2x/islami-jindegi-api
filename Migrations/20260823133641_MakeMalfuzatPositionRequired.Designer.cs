@@ -3,6 +3,7 @@ using System;
 using IslamiJindegiApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IslamiJindegiApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260823133641_MakeMalfuzatPositionRequired")]
+    partial class MakeMalfuzatPositionRequired
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -415,9 +418,6 @@ namespace IslamiJindegiApi.Migrations
                     b.Property<int>("Position")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("ReadingOrder")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
@@ -427,7 +427,7 @@ namespace IslamiJindegiApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BookId", "ReadingOrder");
+                    b.HasIndex("BookId");
 
                     b.ToTable("Chapters");
                 });
@@ -1066,9 +1066,6 @@ namespace IslamiJindegiApi.Migrations
                     b.Property<int>("Position")
                         .HasColumnType("integer");
 
-                    b.Property<int>("ReadingOrder")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1081,8 +1078,6 @@ namespace IslamiJindegiApi.Migrations
                     b.HasIndex("ChapterId");
 
                     b.HasIndex("ParentSubChapterId");
-
-                    b.HasIndex("ReadingOrder");
 
                     b.ToTable("SubChapters");
                 });

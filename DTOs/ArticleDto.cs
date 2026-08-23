@@ -28,7 +28,9 @@ public record ArticleDetail(
     DateTime CreatedAt,
     DateTime UpdatedAt,
     AuthorResponse? Author,
-    List<CategoryResponse> Categories);
+    List<CategoryResponse> Categories,
+    SiblingRef? Previous = null,
+    SiblingRef? Next = null);
 
 public record ArticleAuthorOption(Guid Id, string Name, int Count);
 public record ArticleCategoryOption(Guid Id, string Title, int Count);

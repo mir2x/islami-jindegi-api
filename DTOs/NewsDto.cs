@@ -21,7 +21,9 @@ public record NewsDetail(
     DateTime? PublishedAt,
     int Position,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    SiblingRef? Previous = null,
+    SiblingRef? Next = null);
 
 public record SaveNewsRequest(
     string Title,

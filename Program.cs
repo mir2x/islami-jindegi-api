@@ -1,6 +1,9 @@
 using System.Text;
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using IslamiJindegiApi.Commands;
 using IslamiJindegiApi.Data;
+using IslamiJindegiApi.Filters;
 using IslamiJindegiApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +12,9 @@ using Microsoft.IdentityModel.Tokens;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => options.Filters.Add(new PageSizeClampFilter()))
+    .AddJsonOptions(options =>
+    options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
 builder.Services.AddMemoryCache();
 builder.Services.AddResponseCompression();
 builder.Services.AddOutputCache(options =>
@@ -18,6 +23,31 @@ builder.Services.AddOutputCache(options =>
     // per-body / 100MB total defaults once several domains are cached at once.
     options.MaximumBodySize = 128L * 1024 * 1024;
     options.SizeLimit = 512L * 1024 * 1024;
+});
+builder.Services.AddRateLimiter(options =>
+{
+    // Limit only unauthenticated public reads. Admin writes have their own
+    // authorization boundary and offline sync is protected by output caching.
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var isPublicRead = HttpMethods.IsGet(context.Request.Method)
+            && context.User.Identity?.IsAuthenticated != true;
+        if (!isPublicRead)
+            return RateLimitPartition.GetNoLimiter("authenticated-or-write");
+
+        var key = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            // Mobile carriers commonly place many subscribers behind one
+            // address (CGNAT), so this is deliberately a burst guard, not a
+            // per-user quota. Cached responses still pass this middleware.
+            PermitLimit = 600,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
 var connectionString = BuildConnectionString(
@@ -110,6 +140,7 @@ app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseOutputCache();
 app.UseMiddleware<ResponseCacheInvalidationMiddleware>();
 app.MapControllers();
@@ -190,6 +221,12 @@ using (var scope = app.Services.CreateScope())
     if (args.Contains("--set-offline-availability-defaults"))
     {
         await SetOfflineAvailabilityDefaultsCommand.RunAsync(db);
+        return;
+    }
+
+    if (args.Contains("--recompute-reading-order"))
+    {
+        await RecomputeReadingOrderCommand.RunAsync(db, scope.ServiceProvider.GetRequiredService<IChapterService>());
         return;
     }
 }

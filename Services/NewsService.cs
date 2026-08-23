@@ -31,7 +31,7 @@ public class NewsService(AppDbContext db) : INewsService
         };
 
         var total = await query.CountAsync();
-        var data = await orderedQuery
+        var data = await orderedQuery.ThenBy(n => n.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(n => new NewsListItem(n.Id, n.Title, n.Excerpt, n.Language, n.Published, n.PublishedAt, n.Position, n.CreatedAt, n.UpdatedAt))
@@ -40,10 +40,19 @@ public class NewsService(AppDbContext db) : INewsService
         return new PagedResult<NewsListItem>(data, total, page, pageSize);
     }
 
-    public async Task<NewsDetail?> GetByIdAsync(Guid id)
+    public async Task<NewsDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false)
     {
-        var item = await db.News.FindAsync(id);
-        return item is null ? null : Mappers.ToNewsDetail(item);
+        var item = await db.News.AsNoTracking().FirstOrDefaultAsync(n => n.Id == id && (includeUnpublished || n.Published));
+        if (item is null) return null;
+        var previous = await db.News.AsNoTracking()
+            .Where(n => n.Published && (n.Position > item.Position || (n.Position == item.Position && n.Id.CompareTo(item.Id) > 0)))
+            .OrderBy(n => n.Position).ThenBy(n => n.Id)
+            .Select(n => new SiblingRef(n.Id, n.Title, n.Position)).FirstOrDefaultAsync();
+        var next = await db.News.AsNoTracking()
+            .Where(n => n.Published && (n.Position < item.Position || (n.Position == item.Position && n.Id.CompareTo(item.Id) < 0)))
+            .OrderByDescending(n => n.Position).ThenByDescending(n => n.Id)
+            .Select(n => new SiblingRef(n.Id, n.Title, n.Position)).FirstOrDefaultAsync();
+        return Mappers.ToNewsDetail(item) with { Previous = previous, Next = next };
     }
 
     public async Task<NewsDetail> CreateAsync(SaveNewsRequest req)

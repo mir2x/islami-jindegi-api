@@ -56,6 +56,14 @@ public class DuaController(IDuaService service) : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("{id:guid}/admin")]
+    public async Task<IActionResult> GetByIdForAdmin(Guid id)
+    {
+        var result = await service.GetByIdAsync(id, includeUnpublished: true);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SaveDuaRequest req)
     {

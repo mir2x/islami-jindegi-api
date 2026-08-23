@@ -13,7 +13,7 @@ public class Malfuzat
     public bool Published { get; set; } = true;
     public bool IsOfflineAvailable { get; set; } = false;
     public DateTime? PublishedAt { get; set; }
-    public int? Position { get; set; }
+    public int Position { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

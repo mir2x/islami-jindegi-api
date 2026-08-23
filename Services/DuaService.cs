@@ -27,7 +27,7 @@ public class DuaService(AppDbContext db, ContentSyncNotifier syncNotifier) : IDu
         if (offlineAvailable.HasValue)
             query = query.Where(d => d.IsOfflineAvailable == offlineAvailable.Value);
 
-        query = sort switch
+        var orderedQuery = sort switch
         {
             "position_desc" => query.OrderByDescending(d => d.Position),
             "position_asc" => query.OrderBy(d => d.Position),
@@ -43,7 +43,7 @@ public class DuaService(AppDbContext db, ContentSyncNotifier syncNotifier) : IDu
         };
 
         var total = await query.CountAsync();
-        var data = await query
+        var data = await orderedQuery.ThenBy(d => d.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -71,27 +71,36 @@ public class DuaService(AppDbContext db, ContentSyncNotifier syncNotifier) : IDu
         return data.Select(c => new DuaCategoryOption(c.Id, c.Title, c.Count));
     }
 
-    public async Task<DuaDetail?> GetByIdAsync(Guid id)
+    public async Task<DuaDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false)
     {
         var item = await db.Duas
             .AsNoTracking()
             .Include(d => d.Categories)
-            .FirstOrDefaultAsync(d => d.Id == id);
-        return item is null ? null : Mappers.ToDuaDetail(item);
+            .FirstOrDefaultAsync(d => d.Id == id && (includeUnpublished || d.Published));
+        if (item is null) return null;
+        var previous = await db.Duas.AsNoTracking()
+            .Where(d => d.Published && (d.Position < item.Position || (d.Position == item.Position && d.Id.CompareTo(item.Id) < 0)))
+            .OrderByDescending(d => d.Position).ThenByDescending(d => d.Id)
+            .Select(d => new SiblingRef(d.Id, d.Title, d.Position)).FirstOrDefaultAsync();
+        var next = await db.Duas.AsNoTracking()
+            .Where(d => d.Published && (d.Position > item.Position || (d.Position == item.Position && d.Id.CompareTo(item.Id) > 0)))
+            .OrderBy(d => d.Position).ThenBy(d => d.Id)
+            .Select(d => new SiblingRef(d.Id, d.Title, d.Position)).FirstOrDefaultAsync();
+        return Mappers.ToDuaDetail(item) with { Previous = previous, Next = next };
     }
 
     public async Task<IEnumerable<DuaDetail>> GetOfflineSyncAsync(DateTime? since)
     {
         var items = await db.Duas
             .AsNoTracking()
-            .Where(d => d.IsOfflineAvailable && (since == null || d.UpdatedAt > since))
+            .Where(d => d.Published && d.IsOfflineAvailable && (since == null || d.UpdatedAt > since))
             .Include(d => d.Categories)
             .ToListAsync();
         return items.Select(Mappers.ToDuaDetail);
     }
 
     public async Task<List<Guid>> GetOfflineIdsAsync()
-        => await db.Duas.Where(d => d.IsOfflineAvailable).Select(d => d.Id).ToListAsync();
+        => await db.Duas.Where(d => d.Published && d.IsOfflineAvailable).Select(d => d.Id).ToListAsync();
 
     public async Task<DuaListItem> CreateAsync(SaveDuaRequest req)
     {

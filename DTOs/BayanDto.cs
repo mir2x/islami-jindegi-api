@@ -30,7 +30,9 @@ public record BayanDetail(
     DateTime CreatedAt,
     DateTime UpdatedAt,
     AuthorResponse Author,
-    List<CategoryResponse> Categories);
+    List<CategoryResponse> Categories,
+    SiblingRef? Previous = null,
+    SiblingRef? Next = null);
 
 public record SaveBayanRequest(
     string Title,

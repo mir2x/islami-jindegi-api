@@ -26,6 +26,11 @@ public class ChaptersController(IChapterService service) : ControllerBase
     public async Task<IActionResult> GetChaptersByBook(Guid bookId)
         => Ok(await service.GetChaptersByBookAsync(bookId));
 
+    [Authorize]
+    [HttpGet("api/books/{bookId:guid}/chapters/admin")]
+    public async Task<IActionResult> GetChaptersByBookForAdmin(Guid bookId)
+        => Ok(await service.GetChaptersByBookAsync(bookId, includeUnpublished: true));
+
     [HttpGet("api/chapters/{id:guid}")]
     public async Task<IActionResult> GetChapter(Guid id)
     {
@@ -33,10 +38,26 @@ public class ChaptersController(IChapterService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [Authorize]
+    [HttpGet("api/chapters/{id:guid}/admin")]
+    public async Task<IActionResult> GetChapterForAdmin(Guid id)
+    {
+        var result = await service.GetChapterByIdAsync(id, includeUnpublished: true);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpGet("api/subchapters/{id:guid}")]
     public async Task<IActionResult> GetSubChapter(Guid id)
     {
         var result = await service.GetSubChapterByIdAsync(id);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [Authorize]
+    [HttpGet("api/subchapters/{id:guid}/admin")]
+    public async Task<IActionResult> GetSubChapterForAdmin(Guid id)
+    {
+        var result = await service.GetSubChapterByIdAsync(id, includeUnpublished: true);
         return result is null ? NotFound() : Ok(result);
     }
 

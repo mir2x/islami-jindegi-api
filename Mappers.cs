@@ -18,10 +18,10 @@ public static class Mappers
 
     public static ChapterResponse ToChapterResponse(Chapter c) => new(
         c.Id, c.Title, c.Body, c.Position,
-        c.SubChapters.OrderBy(s => s.Position).Select(ToSubChapterResponse).ToList());
+        c.SubChapters.OrderBy(s => s.ReadingOrder).Select(ToSubChapterResponse).ToList(), c.ReadingOrder);
 
     public static SubChapterResponse ToSubChapterResponse(SubChapter s) =>
-        new(s.Id, s.Title, s.Body, s.Position, s.ParentSubChapterId);
+        new(s.Id, s.Title, s.Body, s.Position, s.ParentSubChapterId, s.ReadingOrder);
 
     public static MediaResponse ToMediaResponse(Media m) => new(
         m.Id, m.FileName, m.Url, m.Type, m.MimeType, m.Size,

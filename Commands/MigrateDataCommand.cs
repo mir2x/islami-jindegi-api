@@ -703,7 +703,9 @@ public static class MigrateDataCommand
                     HasAudio = r[7] is bool ha ? ha : false,
                     Published = r[8] is bool pub ? pub : true,
                     PublishedAt = r[9] is DateTime pat ? DateTime.SpecifyKind(pat, DateTimeKind.Utc) : null,
-                    Position = r[10] as int?,
+                    // Navigation requires a concrete position; the migration
+                    // backfills historical nulls before the column is made NOT NULL.
+                    Position = (r[10] as int?) ?? 0,
                     CreatedAt = Utc(r[11]),
                     UpdatedAt = Utc(r[12]),
                     AuthorId = newAuthorId

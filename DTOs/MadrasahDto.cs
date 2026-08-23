@@ -33,7 +33,9 @@ public record MadrasahDetail(
     List<MadrasahPhotoItem> Photos,
     bool IsOfflineAvailable,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    SiblingRef? Previous = null,
+    SiblingRef? Next = null);
 
 public record SaveMadrasahRequest(
     string Title,

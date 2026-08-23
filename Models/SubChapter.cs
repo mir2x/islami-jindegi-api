@@ -6,6 +6,7 @@ public class SubChapter
     public string Title { get; set; } = string.Empty;
     public string? Body { get; set; }
     public int Position { get; set; }
+    public int ReadingOrder { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
