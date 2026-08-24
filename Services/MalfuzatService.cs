@@ -5,8 +5,37 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IslamiJindegiApi.Services;
 
-public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) : IMalfuzatService
+public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier, PopupAuthorResolver popupAuthor) : IMalfuzatService
 {
+    /// One random published, text-only malfuzat by the popup author, for the
+    /// app's once-a-day home-screen dialog.
+    ///
+    /// The app used to build this itself: fetch page 1 with pageSize 1 to read
+    /// `total`, pick a random page, fetch again. Two round trips per launch per
+    /// device, and it carried the author's primary key in the client — which is
+    /// what broke, silently, every time a migration reissued that key.
+    ///
+    /// Rows with no body are excluded: the dialog renders the body, so one
+    /// without it is a blank card.
+    public async Task<MalfuzatDetail?> GetDailyPopupAsync()
+    {
+        var authorId = await popupAuthor.ResolveAsync();
+        if (authorId is null) return null;
+
+        var item = await db.Malfuzats
+            .AsNoTracking()
+            .Include(m => m.Author)
+            .Include(m => m.Categories)
+            .Where(m => m.AuthorId == authorId.Value
+                && m.Published
+                && !m.HasAudio
+                && m.Body != null && m.Body != "")
+            .OrderBy(_ => EF.Functions.Random())
+            .FirstOrDefaultAsync();
+
+        return item is null ? null : Mappers.ToMalfuzatDetail(item);
+    }
+
     public async Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort, DateOnly? dateFrom = null, DateOnly? dateTo = null)
     {
         var query = db.Malfuzats
@@ -113,7 +142,9 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
         return data.Select(c => new MalfuzatCategoryOption(c.Id, c.Title, c.Count));
     }
 
-    public async Task<MalfuzatDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false)
+    // `hasAudio` scopes previous/next to the Text or Audio tab. Null keeps the
+    // corpus-wide sequence used by the All tab and by unscoped callers.
+    public async Task<MalfuzatDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false, bool? hasAudio = null)
     {
         var item = await db.Malfuzats
             .AsNoTracking()
@@ -122,11 +153,11 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier) 
             .FirstOrDefaultAsync(m => m.Id == id && (includeUnpublished || m.Published));
         if (item is null) return null;
         var previous = await db.Malfuzats.AsNoTracking()
-            .Where(m => m.Published && (m.Position > item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) > 0)))
+            .Where(m => m.Published && (hasAudio == null || m.HasAudio == hasAudio) && (m.Position > item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) > 0)))
             .OrderBy(m => m.Position).ThenBy(m => m.Id)
             .Select(m => new SiblingRef(m.Id, m.Title, m.Position)).FirstOrDefaultAsync();
         var next = await db.Malfuzats.AsNoTracking()
-            .Where(m => m.Published && (m.Position < item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) < 0)))
+            .Where(m => m.Published && (hasAudio == null || m.HasAudio == hasAudio) && (m.Position < item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) < 0)))
             .OrderByDescending(m => m.Position).ThenByDescending(m => m.Id)
             .Select(m => new SiblingRef(m.Id, m.Title, m.Position)).FirstOrDefaultAsync();
         return Mappers.ToMalfuzatDetail(item) with { Previous = previous, Next = next };

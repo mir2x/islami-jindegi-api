@@ -7,7 +7,8 @@ public interface IMalfuzatService
     Task<PagedResult<MalfuzatListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort, DateOnly? dateFrom = null, DateOnly? dateTo = null);
     Task<IEnumerable<MalfuzatAuthorOption>> GetAuthorsAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
     Task<IEnumerable<MalfuzatCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
-    Task<MalfuzatDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false);
+    Task<MalfuzatDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false, bool? hasAudio = null);
+    Task<MalfuzatDetail?> GetDailyPopupAsync();
     Task<IEnumerable<MalfuzatDetail>> GetOfflineSyncAsync(DateTime? since);
     Task<List<Guid>> GetOfflineIdsAsync();
     Task<(MalfuzatListItem? Item, string? Error)> CreateAsync(SaveMalfuzatRequest req);

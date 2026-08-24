@@ -105,6 +105,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Book>().HasIndex(b => new { b.Published, b.Position, b.Id });
         modelBuilder.Entity<Malfuzat>().HasIndex(m => new { m.Published, m.Position, m.Id });
         modelBuilder.Entity<Masail>().HasIndex(m => new { m.Published, m.Position, m.Id });
+        // Text/Audio tab navigation seeks within one partition, so the scope
+        // column leads the position key.
+        modelBuilder.Entity<Malfuzat>().HasIndex(m => new { m.Published, m.HasAudio, m.Position, m.Id });
+        modelBuilder.Entity<Masail>().HasIndex(m => new { m.Published, m.HasAudio, m.Position, m.Id });
         modelBuilder.Entity<Dua>().HasIndex(d => new { d.Published, d.Position, d.Id });
         modelBuilder.Entity<News>().HasIndex(n => new { n.Published, n.Position, n.Id });
         modelBuilder.Entity<Article>().HasIndex(a => new { a.Published, a.Position, a.Id });

@@ -35,7 +35,20 @@ builder.Services.AddRateLimiter(options =>
         if (!isPublicRead)
             return RateLimitPartition.GetNoLimiter("authenticated-or-write");
 
-        var key = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        // Behind Fly's proxy, `RemoteIpAddress` is the edge address, not the
+        // caller — partitioning on it puts every user of the app in ONE bucket
+        // and turns this into a global throttle. Fly overwrites `Fly-Client-IP`
+        // on ingress, so it cannot be spoofed through the public path and is
+        // the authoritative client address here.
+        //
+        // Deliberately no `X-Forwarded-For` fallback: it is client-settable, so
+        // it would hand out a fresh bucket per forged header. `RemoteIpAddress`
+        // is the correct fallback for local development, where there is no
+        // proxy. Moving off Fly means revisiting this line on purpose.
+        var flyClientIp = context.Request.Headers["Fly-Client-IP"].FirstOrDefault();
+        var key = !string.IsNullOrWhiteSpace(flyClientIp)
+            ? flyClientIp
+            : context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
         {
             // Mobile carriers commonly place many subscribers behind one
@@ -91,6 +104,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<IChapterService, ChapterService>();
 builder.Services.AddScoped<IBayanService, BayanService>();
+builder.Services.AddScoped<PopupAuthorResolver>();
 builder.Services.AddScoped<IMalfuzatService, MalfuzatService>();
 builder.Services.AddScoped<IMasailService, MasailService>();
 builder.Services.AddScoped<IDuaService, DuaService>();
@@ -171,6 +185,14 @@ using (var scope = app.Services.CreateScope())
             var fromStep = args.FirstOrDefault(a => a.StartsWith("--from="))?["--from=".Length..];
             await MigrateDataCommand.RunAsync(oldConnStr, db, fromStep);
         }
+
+        // The migration inserts Chapters/SubChapters straight through the
+        // DbContext, bypassing ChapterService — so nothing assigns ReadingOrder
+        // and every imported row would default to 0. Ordering by a column that
+        // is uniformly zero is arbitrary, which is how the whole corpus ended
+        // up scrambled once already. Recompute is idempotent, so always run it.
+        await RecomputeReadingOrderCommand.RunAsync(
+            db, scope.ServiceProvider.GetRequiredService<IChapterService>());
 
         return;
     }

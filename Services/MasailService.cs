@@ -113,7 +113,9 @@ public class MasailService(AppDbContext db, ContentSyncNotifier syncNotifier) : 
         return data.Select(c => new MasailCategoryOption(c.Id, c.Title, c.Count));
     }
 
-    public async Task<MasailDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false)
+    // `hasAudio` scopes previous/next to the Text or Audio tab. Null keeps the
+    // corpus-wide sequence used by the All tab and by unscoped callers.
+    public async Task<MasailDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false, bool? hasAudio = null)
     {
         var item = await db.Masails
             .AsNoTracking()
@@ -122,11 +124,11 @@ public class MasailService(AppDbContext db, ContentSyncNotifier syncNotifier) : 
             .FirstOrDefaultAsync(m => m.Id == id && (includeUnpublished || m.Published));
         if (item is null) return null;
         var previous = await db.Masails.AsNoTracking()
-            .Where(m => m.Published && (m.Position > item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) > 0)))
+            .Where(m => m.Published && (hasAudio == null || m.HasAudio == hasAudio) && (m.Position > item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) > 0)))
             .OrderBy(m => m.Position).ThenBy(m => m.Id)
             .Select(m => new SiblingRef(m.Id, m.Title, m.Position)).FirstOrDefaultAsync();
         var next = await db.Masails.AsNoTracking()
-            .Where(m => m.Published && (m.Position < item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) < 0)))
+            .Where(m => m.Published && (hasAudio == null || m.HasAudio == hasAudio) && (m.Position < item.Position || (m.Position == item.Position && m.Id.CompareTo(item.Id) < 0)))
             .OrderByDescending(m => m.Position).ThenByDescending(m => m.Id)
             .Select(m => new SiblingRef(m.Id, m.Title, m.Position)).FirstOrDefaultAsync();
         return Mappers.ToMasailDetail(item) with { Previous = previous, Next = next };

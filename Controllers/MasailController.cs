@@ -58,11 +58,21 @@ public class MasailController(IMasailService service) : ControllerBase
 
     [HttpGet("{id:guid}")]
     [OutputCache(Duration = 120, Tags = ["masails"])]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id, [FromQuery] string? scope = null)
     {
-        var result = await service.GetByIdAsync(id);
+        var result = await service.GetByIdAsync(id, hasAudio: ScopeToHasAudio(scope));
         return result is null ? NotFound() : Ok(result);
     }
+
+    // The Text/Audio tabs are a permanent partition of the corpus, so
+    // previous/next are scoped to them. Anything else (a share link, a
+    // bookmark, the All tab) leaves the sequence corpus-wide.
+    static bool? ScopeToHasAudio(string? scope) => scope switch
+    {
+        "audio" => true,
+        "text" => false,
+        _ => null,
+    };
 
     [Authorize]
     [HttpGet("{id:guid}/admin")]

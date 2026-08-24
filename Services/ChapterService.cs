@@ -90,7 +90,7 @@ public class ChapterService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         return new ChapterDetail(
             chapter.Id, chapter.Title, chapter.Body, chapter.Position,
             chapter.BookId, chapter.Book.Title,
-            chapter.SubChapters.OrderBy(s => s.ReadingOrder).Select(Mappers.ToSubChapterResponse).ToList(),
+            chapter.SubChapters.OrderBy(s => s.ReadingOrder).ThenBy(s => s.Position).Select(Mappers.ToSubChapterResponse).ToList(),
             chapter.ReadingOrder, previous, next);
     }
 

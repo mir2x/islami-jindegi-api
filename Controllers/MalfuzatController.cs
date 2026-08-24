@@ -8,7 +8,7 @@ namespace IslamiJindegiApi.Controllers;
 
 [ApiController]
 [Route("api/malfuzat")]
-public class MalfuzatController(IMalfuzatService service) : ControllerBase
+public class MalfuzatController(IMalfuzatService service, PopupAuthorResolver popupAuthor) : ControllerBase
 {
     [HttpGet]
     [OutputCache(Duration = 120, Tags = ["malfuzats", "authors", "categories"])]
@@ -19,7 +19,35 @@ public class MalfuzatController(IMalfuzatService service) : ControllerBase
         [FromQuery] bool? hasAudio = null, [FromQuery] bool? offlineAvailable = null,
         [FromQuery] string? sort = null,
         [FromQuery] DateOnly? dateFrom = null, [FromQuery] DateOnly? dateTo = null)
-        => Ok(await service.GetListAsync(page, pageSize, search, authorId, categoryId, published, hasAudio, offlineAvailable, sort, dateFrom, dateTo));
+        => Ok(await service.GetListAsync(page, pageSize, search, await ResolveLegacyAuthorAsync(authorId), categoryId, published, hasAudio, offlineAvailable, sort, dateFrom, dateTo));
+
+    /// The malfuzat author id the legacy Ruby backend used for Mufti Mansurul
+    /// Haq. App builds from March 2025 onward hardcoded it into the home-screen
+    /// popup, and the .NET migration reissued the author's key — so every
+    /// installed copy has been asking for an author that no longer exists and
+    /// silently getting zero results.
+    ///
+    /// Forwarding it to the live id restores those installs without a store
+    /// release. Current app builds use `GET /malfuzat/daily` and send no author
+    /// key at all, so this shim only ever serves old clients and can be deleted
+    /// once they have aged out.
+    static readonly Guid LegacyPopupAuthorId = Guid.Parse("6842ab90-27d0-4ef9-b783-3b03388a2304");
+
+    async Task<Guid?> ResolveLegacyAuthorAsync(Guid? authorId)
+        => authorId == LegacyPopupAuthorId
+            ? await popupAuthor.ResolveAsync() ?? authorId
+            : authorId;
+
+    /// One random published, text-only malfuzat by the popup author.
+    ///
+    /// Deliberately not output-cached: the response is meant to be random per
+    /// request, and each device asks at most once a day.
+    [HttpGet("daily")]
+    public async Task<IActionResult> GetDaily()
+    {
+        var result = await service.GetDailyPopupAsync();
+        return result is null ? NoContent() : Ok(result);
+    }
 
     // Cached because every client that has no watermark yet asks for the
     // same full-corpus response. Without this, each device re-runs the most
@@ -58,11 +86,21 @@ public class MalfuzatController(IMalfuzatService service) : ControllerBase
 
     [HttpGet("{id:guid}")]
     [OutputCache(Duration = 120, Tags = ["malfuzats"])]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id, [FromQuery] string? scope = null)
     {
-        var result = await service.GetByIdAsync(id);
+        var result = await service.GetByIdAsync(id, hasAudio: ScopeToHasAudio(scope));
         return result is null ? NotFound() : Ok(result);
     }
+
+    // The Text/Audio tabs are a permanent partition of the corpus, so
+    // previous/next are scoped to them. Anything else (a share link, a
+    // bookmark, the All tab) leaves the sequence corpus-wide.
+    static bool? ScopeToHasAudio(string? scope) => scope switch
+    {
+        "audio" => true,
+        "text" => false,
+        _ => null,
+    };
 
     [Authorize]
     [HttpGet("{id:guid}/admin")]

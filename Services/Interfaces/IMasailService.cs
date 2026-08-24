@@ -7,7 +7,7 @@ public interface IMasailService
     Task<PagedResult<MasailListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? hasAudio, bool? offlineAvailable, string? sort, DateOnly? dateFrom = null, DateOnly? dateTo = null);
     Task<IEnumerable<MasailAuthorOption>> GetAuthorsAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
     Task<IEnumerable<MasailCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null);
-    Task<MasailDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false);
+    Task<MasailDetail?> GetByIdAsync(Guid id, bool includeUnpublished = false, bool? hasAudio = null);
     Task<IEnumerable<MasailDetail>> GetOfflineSyncAsync(DateTime? since);
     Task<List<Guid>> GetOfflineIdsAsync();
     Task<MasailListItem> CreateAsync(SaveMasailRequest req);
