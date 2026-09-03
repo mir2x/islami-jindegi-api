@@ -9,6 +9,7 @@ public class Author
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    public ICollection<AuthorModule> Modules { get; set; } = [];
     public ICollection<Book> Books { get; set; } = [];
     public ICollection<Malfuzat> Malfuzats { get; set; } = [];
     public ICollection<Masail> Masails { get; set; } = [];

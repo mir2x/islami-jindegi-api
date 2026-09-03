@@ -110,10 +110,22 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier, 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(a => a.Name.Contains(search));
 
+        // Ordered by the module's own position (author_modules), which was recovered from the
+        // legacy per-module author tables. Authors with no position yet sort last.
         var projected = query
-            .Select(a => new { a.Id, a.Name, Count = a.Malfuzats.Count(m => m.Published == published) })
+            .Select(a => new
+            {
+                a.Id,
+                a.Name,
+                Count = a.Malfuzats.Count(m => m.Published == published),
+                Position = a.Modules
+                    .Where(m => m.Module == AuthorModules.Malfuzat)
+                    .Select(m => (int?)m.Position)
+                    .FirstOrDefault()
+            })
             .Where(a => a.Count > 0)
-            .OrderByDescending(a => a.Count)
+            .OrderBy(a => a.Position == null)
+            .ThenBy(a => a.Position)
             .ThenBy(a => a.Name);
 
         var sliced = page.HasValue && pageSize.HasValue

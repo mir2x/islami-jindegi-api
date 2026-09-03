@@ -11,6 +11,12 @@ public static class Mappers
     public static AuthorResponse ToAuthorResponse(Author a) =>
         new(a.Id, a.Name, a.Info, a.Position, a.CreatedAt, a.UpdatedAt);
 
+    /// <summary>As ToAuthorResponse, plus the module memberships the admin edits.</summary>
+    public static AuthorResponse ToAdminAuthorResponse(Author a) =>
+        new(a.Id, a.Name, a.Info, a.Position, a.CreatedAt, a.UpdatedAt,
+            a.Modules.OrderBy(m => m.Module)
+                .Select(m => new AuthorModuleOption(m.Module, m.Position)).ToList());
+
     public static CategoryResponse ToCategoryResponse(Category c) =>
         new(c.Id, c.Title, c.Position, c.ParentId,
             c.Children.OrderBy(ch => ch.Position).Select(ToCategoryResponse).ToList(),

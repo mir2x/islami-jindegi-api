@@ -10,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Author> Authors => Set<Author>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<CategoryModule> CategoryModules => Set<CategoryModule>();
+    public DbSet<AuthorModule> AuthorModules => Set<AuthorModule>();
     public DbSet<Book> Books => Set<Book>();
     public DbSet<Chapter> Chapters => Set<Chapter>();
     public DbSet<SubChapter> SubChapters => Set<SubChapter>();
@@ -54,6 +55,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // the per-module list is always read as "this module, in position order"
             e.HasIndex(cm => new { cm.Module, cm.Position });
         });
+
+        modelBuilder.Entity<AuthorModule>(e =>
+        {
+            e.ToTable("author_modules");
+            e.HasKey(am => new { am.AuthorId, am.Module });
+            e.HasOne(am => am.Author)
+                .WithMany(a => a.Modules)
+                .HasForeignKey(am => am.AuthorId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // the per-module list is always read as "this module, in position order"
+            e.HasIndex(am => new { am.Module, am.Position });
+        });
+
+        // Bayan and Malfuzat require an author, so EF's default for a required relationship is
+        // a cascade delete -- removing one author would take 2,792 bayans with it, silently.
+        // Restrict turns that into a foreign-key error the service reports as a conflict, and
+        // makes merge the only way to retire an author who still owns content.
+        modelBuilder.Entity<Bayan>()
+            .HasOne(b => b.Author)
+            .WithMany(a => a.Bayans)
+            .HasForeignKey(b => b.AuthorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Malfuzat>()
+            .HasOne(m => m.Author)
+            .WithMany(a => a.Malfuzats)
+            .HasForeignKey(m => m.AuthorId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Book>()
             .HasMany(b => b.Authors)
