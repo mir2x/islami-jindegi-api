@@ -36,7 +36,10 @@ public record MalfuzatDetail(
     SiblingRef? Previous = null,
     SiblingRef? Next = null);
 
-public record MalfuzatAuthorOption(Guid Id, string Name, int Count);
+/// <summary>`Position` is the author's place in THIS module's list (author_modules), which is
+/// what the list is already sorted by. The app stores it so its offline filter can reproduce
+/// the same order without re-downloading content.</summary>
+public record MalfuzatAuthorOption(Guid Id, string Name, int Count, int Position);
 public record MalfuzatCategoryOption(Guid Id, string Title, int Count);
 
 public record SaveMalfuzatRequest(

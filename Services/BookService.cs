@@ -94,7 +94,7 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
             : projected;
 
         var data = await sliced.ToListAsync();
-        return data.Select(a => new BookAuthorOption(a.Id, a.Name, a.Count));
+        return data.Select(a => new BookAuthorOption(a.Id, a.Name, a.Count, a.Position ?? 0));
     }
 
     public async Task<IEnumerable<BookCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null)

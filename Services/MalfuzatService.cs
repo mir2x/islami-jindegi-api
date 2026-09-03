@@ -133,7 +133,7 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier, 
             : projected;
 
         var data = await sliced.ToListAsync();
-        return data.Select(a => new MalfuzatAuthorOption(a.Id, a.Name, a.Count));
+        return data.Select(a => new MalfuzatAuthorOption(a.Id, a.Name, a.Count, a.Position ?? 0));
     }
 
     public async Task<IEnumerable<MalfuzatCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null)
@@ -194,10 +194,12 @@ public class MalfuzatService(AppDbContext db, ContentSyncNotifier syncNotifier, 
         var items = await db.Malfuzats
             .AsNoTracking()
             .Where(m => m.Published && m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
-            .Include(m => m.Author)
+            // Modules comes along so the sync payload can carry the author's position in THIS
+            // module rather than the global one -- see Mappers.ToSyncAuthorResponse.
+            .Include(m => m.Author).ThenInclude(author => author!.Modules)
             .Include(m => m.Categories)
             .ToListAsync();
-        return items.Select(Mappers.ToMalfuzatDetail);
+        return items.Select(item => Mappers.ToMalfuzatDetail(item, AuthorModules.Malfuzat));
     }
 
     public async Task<List<Guid>> GetOfflineIdsAsync()

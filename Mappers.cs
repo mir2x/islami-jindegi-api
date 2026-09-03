@@ -11,6 +11,20 @@ public static class Mappers
     public static AuthorResponse ToAuthorResponse(Author a) =>
         new(a.Id, a.Name, a.Info, a.Position, a.CreatedAt, a.UpdatedAt);
 
+    /// <summary>
+    /// The author as an offline-sync response carries them: `Position` is their position in THAT
+    /// module, not the global one. The app stores these rows per module (`bayan_authors`,
+    /// `malfuzat_authors`, …) and orders its offline filter by the stored position, so sending the
+    /// global position — which is really the books ordering — puts the offline list in a different
+    /// order from the online one. Falls back to the global position for an author with no
+    /// membership row, which sorts them last exactly as the online endpoints do.
+    /// </summary>
+    public static AuthorResponse ToSyncAuthorResponse(Author a, string module) =>
+        ToAuthorResponse(a) with
+        {
+            Position = a.Modules.FirstOrDefault(m => m.Module == module)?.Position ?? a.Position
+        };
+
     /// <summary>As ToAuthorResponse, plus the module memberships the admin edits.</summary>
     public static AuthorResponse ToAdminAuthorResponse(Author a) =>
         new(a.Id, a.Name, a.Info, a.Position, a.CreatedAt, a.UpdatedAt,
@@ -64,10 +78,10 @@ public static class Mappers
         ToAuthorResponse(b.Author),
         b.Categories.Select(ToCategoryResponse).ToList());
 
-    public static BayanDetail ToBayanDetail(Bayan b) => new(
+    public static BayanDetail ToBayanDetail(Bayan b, string? authorModule = null) => new(
         b.Id, b.Title, b.Excerpt, b.Language, b.Location, b.AudioUrl,
         b.Published, b.IsOfflineAvailable, b.PublishedAt, b.Position, b.CreatedAt, b.UpdatedAt,
-        ToAuthorResponse(b.Author),
+        authorModule is null ? ToAuthorResponse(b.Author) : ToSyncAuthorResponse(b.Author, authorModule),
         b.Categories.Select(ToCategoryResponse).ToList());
 
     public static MalfuzatListItem ToMalfuzatListItem(Malfuzat m) => new(
@@ -76,10 +90,10 @@ public static class Mappers
         ToAuthorResponse(m.Author),
         m.Categories.Select(ToCategoryResponse).ToList());
 
-    public static MalfuzatDetail ToMalfuzatDetail(Malfuzat m) => new(
+    public static MalfuzatDetail ToMalfuzatDetail(Malfuzat m, string? authorModule = null) => new(
         m.Id, m.Title, m.Body, m.Excerpt, m.Language, m.HasAudio, m.AudioUrl, m.DocumentUrl,
         m.Published, m.IsOfflineAvailable, m.PublishedAt, m.Position, m.CreatedAt, m.UpdatedAt,
-        ToAuthorResponse(m.Author),
+        authorModule is null ? ToAuthorResponse(m.Author) : ToSyncAuthorResponse(m.Author, authorModule),
         m.Categories.Select(ToCategoryResponse).ToList());
 
     public static MasailListItem ToMasailListItem(Masail m) => new(
@@ -88,10 +102,11 @@ public static class Mappers
         m.Author is null ? null : ToAuthorResponse(m.Author),
         m.Categories.Select(ToCategoryResponse).ToList());
 
-    public static MasailDetail ToMasailDetail(Masail m) => new(
+    public static MasailDetail ToMasailDetail(Masail m, string? authorModule = null) => new(
         m.Id, m.Title, m.Question, m.Answer, m.Language, m.HasAudio, m.AudioUrl, m.DocumentUrl,
         m.Published, m.IsOfflineAvailable, m.PublishedAt, m.Position, m.CreatedAt, m.UpdatedAt,
-        m.Author is null ? null : ToAuthorResponse(m.Author),
+        m.Author is null ? null
+            : authorModule is null ? ToAuthorResponse(m.Author) : ToSyncAuthorResponse(m.Author, authorModule),
         m.Categories.Select(ToCategoryResponse).ToList());
 
     public static DuaListItem ToDuaListItem(Dua d) => new(
@@ -110,10 +125,11 @@ public static class Mappers
         a.Author is null ? null : ToAuthorResponse(a.Author),
         a.Categories.Select(ToCategoryResponse).ToList());
 
-    public static ArticleDetail ToArticleDetail(Article a) => new(
+    public static ArticleDetail ToArticleDetail(Article a, string? authorModule = null) => new(
         a.Id, a.Title, a.Body, a.Excerpt, a.Language, a.DocumentUrl,
         a.Published, a.IsOfflineAvailable, a.PublishedAt, a.Position, a.CreatedAt, a.UpdatedAt,
-        a.Author is null ? null : ToAuthorResponse(a.Author),
+        a.Author is null ? null
+            : authorModule is null ? ToAuthorResponse(a.Author) : ToSyncAuthorResponse(a.Author, authorModule),
         a.Categories.Select(ToCategoryResponse).ToList());
 
     public static NewsDetail ToNewsDetail(News n) => new(

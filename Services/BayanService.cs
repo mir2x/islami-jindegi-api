@@ -99,7 +99,7 @@ public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : I
             : projected;
 
         var data = await sliced.ToListAsync();
-        return data.Select(a => new BayanAuthorOption(a.Id, a.Name, a.Count));
+        return data.Select(a => new BayanAuthorOption(a.Id, a.Name, a.Count, a.Position ?? 0));
     }
 
     public async Task<IEnumerable<BayanCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null)
@@ -164,10 +164,12 @@ public class BayanService(AppDbContext db, ContentSyncNotifier syncNotifier) : I
         var items = await db.Bayans
             .AsNoTracking()
             .Where(b => b.Published && b.IsOfflineAvailable && (since == null || b.UpdatedAt > since))
-            .Include(b => b.Author)
+            // Modules comes along so the sync payload can carry the author's position in THIS
+            // module rather than the global one -- see Mappers.ToSyncAuthorResponse.
+            .Include(b => b.Author).ThenInclude(author => author!.Modules)
             .Include(b => b.Categories)
             .ToListAsync();
-        return items.Select(Mappers.ToBayanDetail);
+        return items.Select(item => Mappers.ToBayanDetail(item, AuthorModules.Bayan));
     }
 
     public async Task<List<Guid>> GetOfflineIdsAsync()

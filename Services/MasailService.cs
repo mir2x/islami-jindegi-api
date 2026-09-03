@@ -104,7 +104,7 @@ public class MasailService(AppDbContext db, ContentSyncNotifier syncNotifier) : 
             : projected;
 
         var data = await sliced.ToListAsync();
-        return data.Select(a => new MasailAuthorOption(a.Id, a.Name, a.Count));
+        return data.Select(a => new MasailAuthorOption(a.Id, a.Name, a.Count, a.Position ?? 0));
     }
 
     public async Task<IEnumerable<MasailCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null)
@@ -165,10 +165,12 @@ public class MasailService(AppDbContext db, ContentSyncNotifier syncNotifier) : 
         var items = await db.Masails
             .AsNoTracking()
             .Where(m => m.Published && m.IsOfflineAvailable && (since == null || m.UpdatedAt > since))
-            .Include(m => m.Author)
+            // Modules comes along so the sync payload can carry the author's position in THIS
+            // module rather than the global one -- see Mappers.ToSyncAuthorResponse.
+            .Include(m => m.Author).ThenInclude(author => author!.Modules)
             .Include(m => m.Categories)
             .ToListAsync();
-        return items.Select(Mappers.ToMasailDetail);
+        return items.Select(item => Mappers.ToMasailDetail(item, AuthorModules.Masail));
     }
 
     public async Task<List<Guid>> GetOfflineIdsAsync()

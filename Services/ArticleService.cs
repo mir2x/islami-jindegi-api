@@ -100,7 +100,7 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
             : projected;
 
         var data = await sliced.ToListAsync();
-        return data.Select(a => new ArticleAuthorOption(a.Id, a.Name, a.Count));
+        return data.Select(a => new ArticleAuthorOption(a.Id, a.Name, a.Count, a.Position ?? 0));
     }
 
     public async Task<IEnumerable<ArticleCategoryOption>> GetCategoriesAsync(bool published, string? search = null, int? page = null, int? pageSize = null)
@@ -161,10 +161,12 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
         var items = await db.Articles
             .AsNoTracking()
             .Where(a => a.Published && a.IsOfflineAvailable && (since == null || a.UpdatedAt > since))
-            .Include(a => a.Author)
+            // Modules comes along so the sync payload can carry the author's position in THIS
+            // module rather than the global one -- see Mappers.ToSyncAuthorResponse.
+            .Include(a => a.Author).ThenInclude(author => author!.Modules)
             .Include(a => a.Categories)
             .ToListAsync();
-        return items.Select(Mappers.ToArticleDetail);
+        return items.Select(item => Mappers.ToArticleDetail(item, AuthorModules.Article));
     }
 
     public async Task<List<Guid>> GetOfflineIdsAsync()
