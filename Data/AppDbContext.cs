@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Media> Medias => Set<Media>();
     public DbSet<Author> Authors => Set<Author>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<CategoryModule> CategoryModules => Set<CategoryModule>();
     public DbSet<Book> Books => Set<Book>();
     public DbSet<Chapter> Chapters => Set<Chapter>();
     public DbSet<SubChapter> SubChapters => Set<SubChapter>();
@@ -41,6 +42,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany(c => c.Children)
             .HasForeignKey(c => c.ParentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CategoryModule>(e =>
+        {
+            e.ToTable("category_modules");
+            e.HasKey(cm => new { cm.CategoryId, cm.Module });
+            e.HasOne(cm => cm.Category)
+                .WithMany(c => c.Modules)
+                .HasForeignKey(cm => cm.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // the per-module list is always read as "this module, in position order"
+            e.HasIndex(cm => new { cm.Module, cm.Position });
+        });
 
         modelBuilder.Entity<Book>()
             .HasMany(b => b.Authors)

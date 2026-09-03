@@ -1,0 +1,333 @@
+-- 04-split-roza-zakat-eid.sql
+-- Decision #6 (PM): "রোযার সাথে যাকাত না দিলে ভালো" — zakat should not sit with roza.
+-- Decision #7 (Owner): the result is three categories — রোযা ও ইতিকাফ / যাকাত / ঈদ.
+-- Decision #9 (Owner): the existing ঈদ প্রসঙ্গ category is renamed to ঈদ and shared by
+--                      Bayan and Masail.
+--
+-- Only Masail, Malfuzat and Article had separate zakat categories in the old system, so only
+-- their 137 items can be split automatically. Bayan (127) and Kitab (12) had a combined
+-- category in the old system too -- there is nothing to split them on, so they stay in
+-- রোযা ও ইতিকাফ and are left for the admin (decision #10). Masail's roza items still contain
+-- the ঈদ content for the same reason.
+--
+-- Manual review queue after this script: 242 items. Content may hold several categories, so
+-- an item covering both topics can carry both -- the reviewer is not forced into either/or.
+\set ON_ERROR_STOP on
+BEGIN;
+
+UPDATE "Categories" SET "Title" = 'রোযা ও ইতিকাফ', "UpdatedAt" = now() AT TIME ZONE 'utc'
+WHERE "Id" = 'a1cebb34-4f8d-4ab4-b67f-39a9ad219dc7';
+
+UPDATE "Categories" SET "Title" = 'ঈদ', "UpdatedAt" = now() AT TIME ZONE 'utc'
+WHERE "Id" = 'f25ba37d-ea87-467b-b1cf-344c66788cb6';
+
+INSERT INTO "Categories" ("Id","Title","Position","ParentId","CreatedAt","UpdatedAt")
+VALUES ('7df5cda9-fb69-40cc-b249-3b986499e4c1', 'যাকাত', 95, NULL, now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc');
+
+-- article: যাকাত ফিতরা ও দান — 2 items
+INSERT INTO article_categories ("ArticlesId","CategoriesId") SELECT x, '7df5cda9-fb69-40cc-b249-3b986499e4c1' FROM unnest(ARRAY[
+    '3c390a9a-9f6a-42cb-91ed-5366db9dcced',
+    'bb2d6720-7af3-4aae-9be6-ab6e1c0422be'
+  ]::uuid[]) x
+ON CONFLICT DO NOTHING;
+DELETE FROM article_categories WHERE "CategoriesId" = 'a1cebb34-4f8d-4ab4-b67f-39a9ad219dc7' AND "ArticlesId" = ANY(ARRAY[
+    '3c390a9a-9f6a-42cb-91ed-5366db9dcced',
+    'bb2d6720-7af3-4aae-9be6-ab6e1c0422be'
+  ]::uuid[]);
+
+-- malfuzat: যাকাত ফিতরা ও দান — 5 items
+INSERT INTO malfuzat_categories ("MalfuzatsId","CategoriesId") SELECT x, '7df5cda9-fb69-40cc-b249-3b986499e4c1' FROM unnest(ARRAY[
+    '0a836412-c4c1-46b9-a1ea-e9ddb77af8c8',
+    '1816e847-f66d-4739-a9e1-b635cff18a6b',
+    '699387d4-69c5-49c0-89b9-bc22db07905f',
+    'b588aa95-82b9-4b10-b3d7-cdc752c9a81d',
+    'd613a7a4-5f15-4b7f-80dd-7848c3952b46'
+  ]::uuid[]) x
+ON CONFLICT DO NOTHING;
+DELETE FROM malfuzat_categories WHERE "CategoriesId" = 'a1cebb34-4f8d-4ab4-b67f-39a9ad219dc7' AND "MalfuzatsId" = ANY(ARRAY[
+    '0a836412-c4c1-46b9-a1ea-e9ddb77af8c8',
+    '1816e847-f66d-4739-a9e1-b635cff18a6b',
+    '699387d4-69c5-49c0-89b9-bc22db07905f',
+    'b588aa95-82b9-4b10-b3d7-cdc752c9a81d',
+    'd613a7a4-5f15-4b7f-80dd-7848c3952b46'
+  ]::uuid[]);
+
+-- masail: যাকাত ফিতরা দান উশর ট্যাক্স — 130 items
+INSERT INTO masail_categories ("MasailsId","CategoriesId") SELECT x, '7df5cda9-fb69-40cc-b249-3b986499e4c1' FROM unnest(ARRAY[
+    '044ffb33-2305-45dd-89d6-267e710a3938',
+    '05e93b90-b0fb-4445-9532-b0816206e7e8',
+    '06c93830-5d68-4b2c-a152-d92bd084d4f9',
+    '0835b31e-d7d4-49c2-89bd-9c44e74d4963',
+    '0b825975-4e9d-4f2e-894a-c07cc519382d',
+    '0be62de3-251b-4a4c-b013-651886c254b2',
+    '0be94708-a331-4cba-8718-204c16606a2f',
+    '0ccb7616-f32d-426d-b501-a603d73889e1',
+    '0e652bb1-7bfb-446e-8ffc-d59a88c2288b',
+    '0edcd4a2-6ab7-4623-b112-b78f8c9672e1',
+    '106fb329-80bf-4201-85b1-bc4e7d2f2c7b',
+    '130ed16e-8e88-43d7-b6f5-30f409805c2b',
+    '13a228e3-f92b-4556-8073-f94611bdcfcf',
+    '13ef620b-3bcc-4bcd-8412-ad2a2ddffaad',
+    '167791cd-42dc-41f1-a033-f049bf0bf689',
+    '19896f65-3c33-4339-838f-d81eb3ab8150',
+    '1e4e1a18-9384-4f3d-a178-36179209d03e',
+    '1f86ca8e-7f04-4782-9ec4-4dc9d0059be0',
+    '25859a23-d87b-4ed4-a354-fb055f74c4c6',
+    '29ccf7a5-ef96-4112-abd9-3af8af80b2c5',
+    '2a2bea18-1e04-4f77-ab2d-37f0709b1502',
+    '313434d1-7893-4ebd-9fd7-66fbb7a83f85',
+    '35fbb0d7-7b49-4177-8663-3b10988b8ff9',
+    '37ffe54f-3c8c-476b-a795-dabe390dd929',
+    '3a87ea3a-528d-49ab-ac7d-8fac0edfbbf1',
+    '3bd47290-1f28-45b5-b9a1-5ca41f89a904',
+    '3c33c611-ccbe-40d7-8aaa-1333abd4fcaf',
+    '3c780c3e-1bfe-424f-a625-f2b9237a719e',
+    '3dda1694-8431-49b4-9947-532f46fb3c31',
+    '3e4cbd09-0d2e-44fb-9fcd-38315cad0296',
+    '3e6294e9-604b-4def-b4e1-dd0a55e337ed',
+    '436116a9-f8df-4298-863e-98faf73d20d8',
+    '4509443d-7c39-4c0d-bf91-62e191bacf1d',
+    '458ef813-92e7-4136-819a-f5f3cf43ef12',
+    '4678e918-d0b7-4bd6-9ade-36dcec043ff6',
+    '47679c60-60a6-483e-98bd-4b7051e030c4',
+    '480a0e6f-fb96-4d12-ad17-b5f1f1149f75',
+    '48e7ae57-0263-48b5-a1cc-402fb484200a',
+    '4dc2fe5c-c536-444d-b0d3-d032dd232f00',
+    '4e4486d7-76b6-49c8-81ae-b22aec31523e',
+    '4e4efd58-33df-4cd2-a8b5-96dfa4f24c01',
+    '51516636-d800-49cf-ae48-2b557135cbdf',
+    '54d412bb-af8b-4d19-a768-c15ac8be1f75',
+    '58d49225-50fa-4ee6-b3ab-b4c5eebd3114',
+    '5ce8aba9-3dd4-4d17-9541-54599f94f36c',
+    '5e906e70-3b72-4cd7-8ac1-7375be2becf1',
+    '60a75dd4-9d0b-4e00-b823-ba9dfe9ae401',
+    '626c45f5-c849-45a1-99d8-0a343cf59b62',
+    '64cb8f1c-877d-432a-9bf2-dcc06b0bbada',
+    '64f10e79-0dd3-4aff-b666-9c2f146318ef',
+    '6b64bf1f-ca17-4feb-ac3e-bc34859416bd',
+    '6d8976d5-1bf5-41d5-beee-4c818bfd92b9',
+    '730b9d82-2d02-400a-8acc-947caea1e9cb',
+    '74e81f69-82ef-4946-ae44-032a6741b727',
+    '76c28f48-e34a-41f2-a555-bed666180dfd',
+    '7785e39d-8420-465c-b000-9e8ae6aa809c',
+    '77bcfedc-129e-46ff-a90c-f83a582a7a2b',
+    '7810294f-0762-4123-abc9-6d7e9fa8d177',
+    '78559d43-89f6-4aad-a19f-7e431c7a0b31',
+    '78a56522-da3f-423a-bdb1-a9b0b53408dd',
+    '799221f6-1c1e-4ad1-8045-7eee6c9a3804',
+    '7f8cd35b-2151-4e05-a198-930fdda3d5f4',
+    '7fa4fcca-eb54-43e8-8d67-30f846ec51df',
+    '7fc6e17b-6c49-4ac9-a58e-021fa66616c2',
+    '80e4e7a7-6eb5-45d8-b07d-ef6197f66df5',
+    '8987f572-43f8-4fc7-89eb-aea29b976695',
+    '8ad8028e-7da7-41c4-bd83-fa3adc757832',
+    '8b58e8e2-1981-498d-a8d9-e3c70df62ecb',
+    '8f29719a-0e6e-46d9-9cbf-fbefb09c67a8',
+    '8f3e13d7-8e74-4859-b73d-0e7bc6013eae',
+    '8f6d94c3-985c-45af-889f-4e533b66ead1',
+    '9050a6dd-8fba-4238-8d1e-c3876f59efb7',
+    '9411736e-a995-4d74-935f-a7e86e92bd66',
+    '957828fa-9a09-427b-9e85-13fb0e826204',
+    '95f03043-e38d-4c08-bf2e-c975b8b727bb',
+    '975de1bf-9bb7-42f1-a85d-d51c44937821',
+    '97d0d497-907e-4321-aa29-035082e4d298',
+    '98350526-112f-42b1-8f56-f136ecae0400',
+    '986e866e-7748-4749-9f18-de0b30380d4d',
+    '992a0bd7-e3de-4bf1-a6fe-e821760a05b4',
+    '99f34aae-c543-4c0d-9470-bfeffc8b1e7a',
+    '9aaf3b09-45fb-448a-842e-3ba77fb1a5bc',
+    '9fb9f641-4fb1-4176-a0ae-eecdb69dafe1',
+    'a0007255-fb17-4e3f-a76d-f6e4fc4bee25',
+    'a0c6c514-313a-4a36-a084-f7df6ec36fe4',
+    'a1937feb-aba4-4c85-800e-b9772b26ef98',
+    'a1ace2c9-b0c2-4ea2-8c38-8535b3bbc451',
+    'a237bdf7-bc5c-4a49-b09e-b9838746e579',
+    'a3f5d229-8b49-452d-b2c1-e2d00a37af39',
+    'a9f3e39f-d79c-4c9d-9da7-658303ac5d3a',
+    'adb21689-3f69-44e2-9524-063e8ddbe7da',
+    'add0634f-54d7-44ea-bad5-8fb2245c75b3',
+    'afed793a-8b42-411b-bc57-e19c879156b5',
+    'b1d6f2fe-26c7-4c82-bca9-749f2209a582',
+    'b3717201-e81a-4804-8b87-eb5477819fc4',
+    'b7b2891b-9769-4b93-9fb1-58863f427a19',
+    'beaf940f-883b-44c8-b4d3-8017bd5b2bcd',
+    'bf1c6c3d-703e-4c9c-8207-17f309405ab6',
+    'bf89cb34-b52d-447c-a29b-db846f4e90cc',
+    'c0696694-d884-4b91-8c9a-2f1a9043683e',
+    'c0a280d9-317f-4763-9351-f75ca1d251e6',
+    'c1045ce0-fa76-4307-9111-874ea68f76cd',
+    'c48273f4-9aa9-4906-be12-e79098b3624b',
+    'c9655f95-789a-401c-b1e2-ea97d967c1ad',
+    'cb829f04-b50f-498f-80d9-2f0430b60d45',
+    'd145db0b-eef8-4098-a6d6-a82c52dfebb9',
+    'd192344a-dcc2-4a9e-8a22-54da0f80df87',
+    'd294d911-2180-4916-9a98-33dd52f80a2a',
+    'd6fdae30-7393-49d7-a624-88c120851f36',
+    'db42d837-602a-409d-b68e-aac20a60dc66',
+    'dbb449cf-9a50-47d4-9a38-874ea09469f8',
+    'dc4f1d5d-0974-47f5-a457-9cc15efdbe2b',
+    'dcbd4ab9-a303-4f4e-acfd-c689f9942a2b',
+    'dd9ed0e9-d9ef-4a29-87be-8122ef85eb2f',
+    'df068a26-a992-4ef6-9332-1672680a4d22',
+    'e050251d-5496-4cd5-9f4d-1dc534010d6d',
+    'e2895f44-585c-4816-9f82-7bb60e4fb297',
+    'e4662dd7-9d3d-4c4d-847f-b9a882051eff',
+    'e5e876af-d608-4546-9d3a-d7a6384e51f8',
+    'e95d503e-385e-492f-85ab-1ad2ba0c033a',
+    'ea743ccf-11bd-42e2-a49f-6a09c591470c',
+    'eb94d151-f8a7-456c-83ff-eabb85f436d7',
+    'ebbb3624-2a68-4ee5-9f2d-017770bd5486',
+    'f1bdfd18-d786-46a5-adc3-be23ec93a6bb',
+    'f4354569-63c9-44bb-9748-5bb6f80514fb',
+    'f5f19169-7bc0-4dce-985b-5c191bebb5b9',
+    'fb73d82c-f101-42a9-8de4-7a1966489c0f',
+    'fc3492b5-6d24-4a2d-9ddc-b1e825449a35',
+    'fd2fa587-2971-48b4-9d1c-21457034fab3',
+    'fd623fd3-009a-4b70-9617-000fbbbef1b5'
+  ]::uuid[]) x
+ON CONFLICT DO NOTHING;
+DELETE FROM masail_categories WHERE "CategoriesId" = 'a1cebb34-4f8d-4ab4-b67f-39a9ad219dc7' AND "MasailsId" = ANY(ARRAY[
+    '044ffb33-2305-45dd-89d6-267e710a3938',
+    '05e93b90-b0fb-4445-9532-b0816206e7e8',
+    '06c93830-5d68-4b2c-a152-d92bd084d4f9',
+    '0835b31e-d7d4-49c2-89bd-9c44e74d4963',
+    '0b825975-4e9d-4f2e-894a-c07cc519382d',
+    '0be62de3-251b-4a4c-b013-651886c254b2',
+    '0be94708-a331-4cba-8718-204c16606a2f',
+    '0ccb7616-f32d-426d-b501-a603d73889e1',
+    '0e652bb1-7bfb-446e-8ffc-d59a88c2288b',
+    '0edcd4a2-6ab7-4623-b112-b78f8c9672e1',
+    '106fb329-80bf-4201-85b1-bc4e7d2f2c7b',
+    '130ed16e-8e88-43d7-b6f5-30f409805c2b',
+    '13a228e3-f92b-4556-8073-f94611bdcfcf',
+    '13ef620b-3bcc-4bcd-8412-ad2a2ddffaad',
+    '167791cd-42dc-41f1-a033-f049bf0bf689',
+    '19896f65-3c33-4339-838f-d81eb3ab8150',
+    '1e4e1a18-9384-4f3d-a178-36179209d03e',
+    '1f86ca8e-7f04-4782-9ec4-4dc9d0059be0',
+    '25859a23-d87b-4ed4-a354-fb055f74c4c6',
+    '29ccf7a5-ef96-4112-abd9-3af8af80b2c5',
+    '2a2bea18-1e04-4f77-ab2d-37f0709b1502',
+    '313434d1-7893-4ebd-9fd7-66fbb7a83f85',
+    '35fbb0d7-7b49-4177-8663-3b10988b8ff9',
+    '37ffe54f-3c8c-476b-a795-dabe390dd929',
+    '3a87ea3a-528d-49ab-ac7d-8fac0edfbbf1',
+    '3bd47290-1f28-45b5-b9a1-5ca41f89a904',
+    '3c33c611-ccbe-40d7-8aaa-1333abd4fcaf',
+    '3c780c3e-1bfe-424f-a625-f2b9237a719e',
+    '3dda1694-8431-49b4-9947-532f46fb3c31',
+    '3e4cbd09-0d2e-44fb-9fcd-38315cad0296',
+    '3e6294e9-604b-4def-b4e1-dd0a55e337ed',
+    '436116a9-f8df-4298-863e-98faf73d20d8',
+    '4509443d-7c39-4c0d-bf91-62e191bacf1d',
+    '458ef813-92e7-4136-819a-f5f3cf43ef12',
+    '4678e918-d0b7-4bd6-9ade-36dcec043ff6',
+    '47679c60-60a6-483e-98bd-4b7051e030c4',
+    '480a0e6f-fb96-4d12-ad17-b5f1f1149f75',
+    '48e7ae57-0263-48b5-a1cc-402fb484200a',
+    '4dc2fe5c-c536-444d-b0d3-d032dd232f00',
+    '4e4486d7-76b6-49c8-81ae-b22aec31523e',
+    '4e4efd58-33df-4cd2-a8b5-96dfa4f24c01',
+    '51516636-d800-49cf-ae48-2b557135cbdf',
+    '54d412bb-af8b-4d19-a768-c15ac8be1f75',
+    '58d49225-50fa-4ee6-b3ab-b4c5eebd3114',
+    '5ce8aba9-3dd4-4d17-9541-54599f94f36c',
+    '5e906e70-3b72-4cd7-8ac1-7375be2becf1',
+    '60a75dd4-9d0b-4e00-b823-ba9dfe9ae401',
+    '626c45f5-c849-45a1-99d8-0a343cf59b62',
+    '64cb8f1c-877d-432a-9bf2-dcc06b0bbada',
+    '64f10e79-0dd3-4aff-b666-9c2f146318ef',
+    '6b64bf1f-ca17-4feb-ac3e-bc34859416bd',
+    '6d8976d5-1bf5-41d5-beee-4c818bfd92b9',
+    '730b9d82-2d02-400a-8acc-947caea1e9cb',
+    '74e81f69-82ef-4946-ae44-032a6741b727',
+    '76c28f48-e34a-41f2-a555-bed666180dfd',
+    '7785e39d-8420-465c-b000-9e8ae6aa809c',
+    '77bcfedc-129e-46ff-a90c-f83a582a7a2b',
+    '7810294f-0762-4123-abc9-6d7e9fa8d177',
+    '78559d43-89f6-4aad-a19f-7e431c7a0b31',
+    '78a56522-da3f-423a-bdb1-a9b0b53408dd',
+    '799221f6-1c1e-4ad1-8045-7eee6c9a3804',
+    '7f8cd35b-2151-4e05-a198-930fdda3d5f4',
+    '7fa4fcca-eb54-43e8-8d67-30f846ec51df',
+    '7fc6e17b-6c49-4ac9-a58e-021fa66616c2',
+    '80e4e7a7-6eb5-45d8-b07d-ef6197f66df5',
+    '8987f572-43f8-4fc7-89eb-aea29b976695',
+    '8ad8028e-7da7-41c4-bd83-fa3adc757832',
+    '8b58e8e2-1981-498d-a8d9-e3c70df62ecb',
+    '8f29719a-0e6e-46d9-9cbf-fbefb09c67a8',
+    '8f3e13d7-8e74-4859-b73d-0e7bc6013eae',
+    '8f6d94c3-985c-45af-889f-4e533b66ead1',
+    '9050a6dd-8fba-4238-8d1e-c3876f59efb7',
+    '9411736e-a995-4d74-935f-a7e86e92bd66',
+    '957828fa-9a09-427b-9e85-13fb0e826204',
+    '95f03043-e38d-4c08-bf2e-c975b8b727bb',
+    '975de1bf-9bb7-42f1-a85d-d51c44937821',
+    '97d0d497-907e-4321-aa29-035082e4d298',
+    '98350526-112f-42b1-8f56-f136ecae0400',
+    '986e866e-7748-4749-9f18-de0b30380d4d',
+    '992a0bd7-e3de-4bf1-a6fe-e821760a05b4',
+    '99f34aae-c543-4c0d-9470-bfeffc8b1e7a',
+    '9aaf3b09-45fb-448a-842e-3ba77fb1a5bc',
+    '9fb9f641-4fb1-4176-a0ae-eecdb69dafe1',
+    'a0007255-fb17-4e3f-a76d-f6e4fc4bee25',
+    'a0c6c514-313a-4a36-a084-f7df6ec36fe4',
+    'a1937feb-aba4-4c85-800e-b9772b26ef98',
+    'a1ace2c9-b0c2-4ea2-8c38-8535b3bbc451',
+    'a237bdf7-bc5c-4a49-b09e-b9838746e579',
+    'a3f5d229-8b49-452d-b2c1-e2d00a37af39',
+    'a9f3e39f-d79c-4c9d-9da7-658303ac5d3a',
+    'adb21689-3f69-44e2-9524-063e8ddbe7da',
+    'add0634f-54d7-44ea-bad5-8fb2245c75b3',
+    'afed793a-8b42-411b-bc57-e19c879156b5',
+    'b1d6f2fe-26c7-4c82-bca9-749f2209a582',
+    'b3717201-e81a-4804-8b87-eb5477819fc4',
+    'b7b2891b-9769-4b93-9fb1-58863f427a19',
+    'beaf940f-883b-44c8-b4d3-8017bd5b2bcd',
+    'bf1c6c3d-703e-4c9c-8207-17f309405ab6',
+    'bf89cb34-b52d-447c-a29b-db846f4e90cc',
+    'c0696694-d884-4b91-8c9a-2f1a9043683e',
+    'c0a280d9-317f-4763-9351-f75ca1d251e6',
+    'c1045ce0-fa76-4307-9111-874ea68f76cd',
+    'c48273f4-9aa9-4906-be12-e79098b3624b',
+    'c9655f95-789a-401c-b1e2-ea97d967c1ad',
+    'cb829f04-b50f-498f-80d9-2f0430b60d45',
+    'd145db0b-eef8-4098-a6d6-a82c52dfebb9',
+    'd192344a-dcc2-4a9e-8a22-54da0f80df87',
+    'd294d911-2180-4916-9a98-33dd52f80a2a',
+    'd6fdae30-7393-49d7-a624-88c120851f36',
+    'db42d837-602a-409d-b68e-aac20a60dc66',
+    'dbb449cf-9a50-47d4-9a38-874ea09469f8',
+    'dc4f1d5d-0974-47f5-a457-9cc15efdbe2b',
+    'dcbd4ab9-a303-4f4e-acfd-c689f9942a2b',
+    'dd9ed0e9-d9ef-4a29-87be-8122ef85eb2f',
+    'df068a26-a992-4ef6-9332-1672680a4d22',
+    'e050251d-5496-4cd5-9f4d-1dc534010d6d',
+    'e2895f44-585c-4816-9f82-7bb60e4fb297',
+    'e4662dd7-9d3d-4c4d-847f-b9a882051eff',
+    'e5e876af-d608-4546-9d3a-d7a6384e51f8',
+    'e95d503e-385e-492f-85ab-1ad2ba0c033a',
+    'ea743ccf-11bd-42e2-a49f-6a09c591470c',
+    'eb94d151-f8a7-456c-83ff-eabb85f436d7',
+    'ebbb3624-2a68-4ee5-9f2d-017770bd5486',
+    'f1bdfd18-d786-46a5-adc3-be23ec93a6bb',
+    'f4354569-63c9-44bb-9748-5bb6f80514fb',
+    'f5f19169-7bc0-4dce-985b-5c191bebb5b9',
+    'fb73d82c-f101-42a9-8de4-7a1966489c0f',
+    'fc3492b5-6d24-4a2d-9ddc-b1e825449a35',
+    'fd2fa587-2971-48b4-9d1c-21457034fab3',
+    'fd623fd3-009a-4b70-9617-000fbbbef1b5'
+  ]::uuid[]);
+
+DO $$
+DECLARE z int; r int;
+BEGIN
+  SELECT count(*) INTO z FROM (
+    SELECT 1 FROM masail_categories WHERE "CategoriesId"='7df5cda9-fb69-40cc-b249-3b986499e4c1'
+    UNION ALL SELECT 1 FROM malfuzat_categories WHERE "CategoriesId"='7df5cda9-fb69-40cc-b249-3b986499e4c1'
+    UNION ALL SELECT 1 FROM article_categories WHERE "CategoriesId"='7df5cda9-fb69-40cc-b249-3b986499e4c1') a;
+  IF z <> 137 THEN RAISE EXCEPTION 'expected 137 items in যাকাত, found %', z; END IF;
+  RAISE NOTICE 'যাকাত holds % items; রোযা ও ইতিকাফ keeps the rest', z;
+END $$;
+
+COMMIT;

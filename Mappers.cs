@@ -16,6 +16,14 @@ public static class Mappers
             c.Children.OrderBy(ch => ch.Position).Select(ToCategoryResponse).ToList(),
             c.CreatedAt, c.UpdatedAt);
 
+    /// <summary>As ToCategoryResponse, plus the module memberships the admin edits.</summary>
+    public static CategoryResponse ToAdminCategoryResponse(Category c) =>
+        new(c.Id, c.Title, c.Position, c.ParentId,
+            c.Children.OrderBy(ch => ch.Position).Select(ToAdminCategoryResponse).ToList(),
+            c.CreatedAt, c.UpdatedAt,
+            c.Modules.OrderBy(m => m.Module)
+                .Select(m => new CategoryModuleOption(m.Module, m.Position)).ToList());
+
     public static ChapterResponse ToChapterResponse(Chapter c) => new(
         c.Id, c.Title, c.Body, c.Position,
         c.SubChapters.OrderBy(s => s.ReadingOrder).ThenBy(s => s.Position)

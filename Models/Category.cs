@@ -10,6 +10,7 @@ public class Category
     public DateTime UpdatedAt { get; set; }
 
     public Category? Parent { get; set; }
+    public ICollection<CategoryModule> Modules { get; set; } = [];
     public ICollection<Category> Children { get; set; } = [];
     public ICollection<Book> Books { get; set; } = [];
     public ICollection<Malfuzat> Malfuzats { get; set; } = [];

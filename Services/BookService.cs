@@ -79,10 +79,22 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(c => c.Title.Contains(search));
 
+        // Ordered by the module's own position (category_modules), which was recovered from
+        // the legacy per-module category tables. Categories with no position yet sort last.
         var projected = query
-            .Select(c => new { c.Id, c.Title, Count = c.Books.Count(b => b.Published == published) })
+            .Select(c => new
+            {
+                c.Id,
+                c.Title,
+                Count = c.Books.Count(b => b.Published == published),
+                Position = c.Modules
+                    .Where(m => m.Module == ContentModules.Book)
+                    .Select(m => (int?)m.Position)
+                    .FirstOrDefault()
+            })
             .Where(c => c.Count > 0)
-            .OrderByDescending(c => c.Count)
+            .OrderBy(c => c.Position == null)
+            .ThenBy(c => c.Position)
             .ThenBy(c => c.Title);
 
         var sliced = page.HasValue && pageSize.HasValue

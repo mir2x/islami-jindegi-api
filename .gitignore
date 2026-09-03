@@ -7,3 +7,4 @@ obj/
 *.log
 .secrets
 offline_data
+docs/

@@ -23,11 +23,23 @@ primary_region = 'sin'
     method = 'GET'
     path = '/health'
 
-# Dedicated CPU, not shared: the API is CPU-bound on JSON serialisation and
-# response compression of large payloads. On shared-cpu-2x it ran at load 14
-# with 90% CPU pressure stall, which made even /health take 19s. Memory stays
-# at 4gb (only ~1.1gb is used) so this adds no per-region memory quota pressure.
+# Back on shared CPU as of 2026-09-02, after the cross-region hop was removed.
+# The earlier shared-cpu-2x collapse (load 14, 90% CPU pressure stall, /health
+# taking 19s) happened while the API sat in 'bom' and the database in 'sin':
+# every request paid several 60-90ms round trips, so requests piled up and it
+# was the *concurrency* that pinned the CPU, not serialisation alone. With both
+# in 'sin' and twice the cores, /health, /api/categories and the paged list
+# endpoints all return in 0.22-0.30s end-to-end from Bangladesh -- the same as
+# on performance-2x, of which ~0.18s is network and TLS.
+#
+# Memory is 2gb, not 4gb: only ~1.1gb is used, and the spare 2gb was costing
+# ~$11/month for nothing (the old note weighed it against Fly's regional memory
+# quota, which is not the same thing as the bill).
+#
+# The /health check below is the tripwire: if shared cores ever stop coping,
+# it goes unhealthy long before users notice. Escalation path is
+# performance-1x, then performance-2x.
 [[vm]]
-  memory = '4gb'
-  cpu_kind = 'performance'
-  cpus = 2
+  memory = '2gb'
+  cpu_kind = 'shared'
+  cpus = 4

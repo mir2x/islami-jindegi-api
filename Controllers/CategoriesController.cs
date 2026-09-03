@@ -32,12 +32,20 @@ public class CategoriesController(ICategoryService service) : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    // How much content is attached, per module. Not cached: it backs the confirmation shown
+    // before a delete or merge, where a stale count would be actively misleading.
+    [HttpGet("{id:guid}/usage")]
+    public async Task<IActionResult> GetUsage(Guid id)
+        => Ok(await service.GetUsageAsync(id));
+
     [Authorize]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCategoryRequest req)
     {
         var result = await service.CreateAsync(req);
-        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        return result.Status == CategoryWriteStatus.Ok
+            ? CreatedAtAction(nameof(GetById), new { id = result.Category!.Id }, result.Category)
+            : Problem(result);
     }
 
     [Authorize]
@@ -45,11 +53,40 @@ public class CategoriesController(ICategoryService service) : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCategoryRequest req)
     {
         var result = await service.UpdateAsync(id, req);
-        return result is null ? NotFound() : Ok(result);
+        return result.Status == CategoryWriteStatus.Ok ? Ok(result.Category) : Problem(result);
     }
 
     [Authorize]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
         => await service.DeleteAsync(id) ? NoContent() : NotFound();
+
+    /// <summary>
+    /// Moves all content and module memberships onto the target, then deletes this category.
+    /// Without this the only way to consolidate two categories is to rename one, which moves no
+    /// content and is how the duplicate titles were created.
+    /// </summary>
+    [Authorize]
+    [HttpPost("{id:guid}/merge")]
+    public async Task<IActionResult> Merge(Guid id, [FromBody] MergeCategoryRequest req)
+    {
+        var result = await service.MergeAsync(id, req.TargetId);
+        return result.Status == CategoryWriteStatus.Ok ? Ok(result.Category) : Problem(result);
+    }
+
+    // Route is matched before "{id:guid}" because "reorder" is not a Guid.
+    [Authorize]
+    [HttpPut("reorder")]
+    public async Task<IActionResult> Reorder([FromBody] ReorderCategoriesRequest req)
+    {
+        var result = await service.ReorderAsync(req);
+        return result.Status == CategoryWriteStatus.Ok ? Ok(new { reordered = req.CategoryIds.Count }) : Problem(result);
+    }
+
+    IActionResult Problem(CategoryWriteResult result) => result.Status switch
+    {
+        CategoryWriteStatus.NotFound => NotFound(),
+        CategoryWriteStatus.DuplicateTitle => Conflict(new { message = result.Message }),
+        _ => BadRequest(new { message = result.Message }),
+    };
 }
