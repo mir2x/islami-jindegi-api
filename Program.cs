@@ -97,6 +97,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
             errorCodesToAdd: null)));
 
 builder.Services.AddSingleton<StorageService>();
+// Pure function over embedded polygon data — no I/O, no per-request state.
+builder.Services.AddSingleton<ITimezoneService, TimezoneService>();
 builder.Services.AddSingleton<ContentSyncNotifier>();
 
 builder.Services.AddScoped<IAuthorService, AuthorService>();
