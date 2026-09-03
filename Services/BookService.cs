@@ -7,7 +7,7 @@ namespace IslamiJindegiApi.Services;
 
 public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IBookService
 {
-    public async Task<PagedResult<BookListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort)
+    public async Task<PagedResult<BookListItem>> GetListAsync(int page, int pageSize, string? search, Guid? authorId, Guid? categoryId, bool? published, bool? offlineAvailable, string? sort, DateOnly? dateFrom = null, DateOnly? dateTo = null)
     {
         var query = db.Books
             .AsNoTracking()
@@ -26,6 +26,16 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
             query = query.Where(b => b.Published == published.Value);
         if (offlineAvailable.HasValue)
             query = query.Where(b => b.IsOfflineAvailable == offlineAvailable.Value);
+        if (dateFrom.HasValue)
+        {
+            var from = DateTime.SpecifyKind(dateFrom.Value.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(b => (b.PublishedAt ?? b.CreatedAt) >= from);
+        }
+        if (dateTo.HasValue)
+        {
+            var toExclusive = DateTime.SpecifyKind(dateTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            query = query.Where(b => (b.PublishedAt ?? b.CreatedAt) < toExclusive);
+        }
 
         var orderedQuery = sort switch
         {
@@ -37,6 +47,8 @@ public class BookService(AppDbContext db, ContentSyncNotifier syncNotifier) : IB
             "authors_desc" => query.OrderByDescending(b => b.Authors.OrderBy(a => a.Name).Select(a => a.Name).FirstOrDefault()),
             "updated_asc" => query.OrderBy(b => b.UpdatedAt),
             "updated_desc" => query.OrderByDescending(b => b.UpdatedAt),
+            "date_asc" => query.OrderBy(b => b.PublishedAt ?? b.CreatedAt),
+            "date_desc" => query.OrderByDescending(b => b.PublishedAt ?? b.CreatedAt),
             "published_asc" => query.OrderBy(b => b.Published).ThenBy(b => b.Position),
             "published_desc" => query.OrderByDescending(b => b.Published).ThenBy(b => b.Position),
             _ => query.OrderBy(b => b.Position),

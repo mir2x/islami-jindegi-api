@@ -55,6 +55,8 @@ public class ArticleService(AppDbContext db, ContentSyncNotifier syncNotifier) :
             "author_desc" => query.OrderByDescending(a => a.Author!.Name),
             "language_asc" => query.OrderBy(a => a.Language),
             "language_desc" => query.OrderByDescending(a => a.Language),
+            "date_asc" => query.OrderBy(a => a.PublishedAt ?? a.CreatedAt),
+            "date_desc" => query.OrderByDescending(a => a.PublishedAt ?? a.CreatedAt),
             "published_asc" => query.OrderBy(a => a.Published).ThenBy(a => a.Position),
             "published_desc" => query.OrderByDescending(a => a.Published).ThenBy(a => a.Position),
             _ => query.OrderBy(a => a.Position),
